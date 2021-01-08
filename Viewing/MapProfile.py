@@ -420,7 +420,7 @@ class imgProfile:
 
 
     ### Profiling
-    def queryProfile(self,queryXY=None, queryLoLa=None):
+    def queryProfile(self, queryXY=None, queryLoLa=None):
         '''
         Wrapper for computing the profile points.
         '''
@@ -640,7 +640,7 @@ class imgProfile:
         Save profile location and data points to a text file.
         '''
         # If outName is specified, save (append) data to file
-        if self.txtName is not None and self.figName is not None:
+        if hasattr(self,'txtName') and hasattr(self,'figName'):
             # Write data to file
             with open(self.txtName,'a+') as txtFile:
                 # Format meta information
@@ -676,7 +676,7 @@ n {nPts:d}
             print('Saved prof {:d} data to: {:s}'.\
                 format(self.profNb, os.path.basename(self.txtName)))
 
-            ## Save figure
+            ## Save profile figure
             self.ProfFig.savefig(self.figName, format='pdf')
             print('Saved prof {:d} figure to: {:s}'.\
                 format(self.profNb, os.path.basename(self.figName)))
