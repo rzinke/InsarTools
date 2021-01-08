@@ -35,7 +35,7 @@ images and multi-band data sets.'''
 
     # Display arguments
     displayArgs = parser.add_argument_group('DISPLAY ARGUMENTS')
-    displayArgs.add_argument('-ds','--downsample-factor', dest='dfactor', default=0,
+    displayArgs.add_argument('-ds','--downsample-factor', dest='dfactor', type=int, default=0,
         help='Downsample factor')
     displayArgs.add_argument('-c','--cmap', dest='cmap', type=str, default='viridis',
         help='Colormap')
@@ -126,8 +126,7 @@ class mapShow:
             self.img = self.DS.GetRasterBand(self.imgBand).ReadAsArray()
 
             if self.verbose == True: 
-                print('Loaded band: {:d} / {:d}'.format(self.imgBand,
-                    self.DS.RasterCount))
+                print('Loaded band: {:d} / {:d}'.format(self.imgBand, self.DS.RasterCount))
 
         self.imgSize = np.prod(self.img.shape)
 
@@ -140,8 +139,8 @@ class mapShow:
         Called automatically by __loadData__.
         '''
         # Basic parameters
-        M,N = self.DS.RasterYSize, self.DS.RasterXSize
-        [xmin,dx,xshear,ymax,yshear,dy] = self.DS.GetGeoTransform()
+        M, N = self.DS.RasterYSize, self.DS.RasterXSize
+        [xmin, dx, xshear, ymax, yshear, dy] = self.DS.GetGeoTransform()
 
         # Fill in the rest
         xmax = xmin + N*dx
@@ -153,9 +152,8 @@ class mapShow:
         # Report if requested
         if self.verbose == True:
             print('GEOGRAPHIC INFO')
-            print('Spatial extent:\n\txmin {}\n\tymin {}\n\txmax {}\n\tymax {}'.\
-                format(xmin, ymin, xmax, ymax))
-            print('Pixel sizes: dx {}, dy {}'.format(dx,dy))
+            print('Spatial extent:\n\txmin {}\n\tymin {}\n\txmax {}\n\tymax {}'.format(xmin, ymin, xmax, ymax))
+            print('Pixel sizes: dx {}, dy {}'.format(dx, dy))
 
     def __maskBackground__(self):
         '''
@@ -187,7 +185,7 @@ class mapShow:
                 # Report results of each background value
                 if self.verbose == True:
                     pct = np.sum(self.img==val)/self.img.size
-                    print('\tValue: {:d} composes {:.1f} %'.format(n,pct))
+                    print('\tValue: {:d} composes {:.1f} %'.format(n, pct))
 
             # Mask by background value
             mask[np.isnan(self.img) == 1] = 0
@@ -209,7 +207,7 @@ class mapShow:
         Called automatically by __maskBackground__.
         '''
         # Edge values
-        edgeValues = np.concatenate([img[0,:],img[-1,:],img[:,0],img[:,-1]])
+        edgeValues = np.concatenate([img[0,:], img[-1,:], img[:,0], img[:,-1]])
         autoBG = mode(edgeValues).mode[0]
 
         return autoBG
@@ -237,12 +235,12 @@ class mapShow:
 
 
     ## Plot
-    def plotImg(self,dfactor,cmap,cOrient,vmin,vmax,pctmin,pctmax,equalize):
+    def plotImg(self, dfactor, cmap, cOrient, vmin, vmax, pctmin, pctmax, equalize):
         '''
         Plot formatted image.
         '''
         # Determine min/max image values
-        self.__determineMinMax__(vmin,vmax,pctmin,pctmax)
+        self.__determineMinMax__(vmin, vmax, pctmin, pctmax)
 
         # Equalize colors if specified
         if equalize == True: self.__equalize__()
@@ -253,13 +251,13 @@ class mapShow:
         # Plot image
         ds = int(2**dfactor)
         cImg = self.imgAx.imshow(self.img[::ds,::ds],
-            cmap = cmap, vmin = self.vmin,vmax = self.vmax,
+            cmap = cmap, vmin = self.vmin, vmax = self.vmax,
             extent = self.extent)
 
         # Format image plot
-        self.Fig.colorbar(cImg,ax=self.imgAx,orientation=cOrient)
+        self.Fig.colorbar(cImg, ax=self.imgAx, orientation=cOrient)
 
-    def __determineMinMax__(self,vmin,vmax,pctmin,pctmax):
+    def __determineMinMax__(self, vmin, vmax, pctmin, pctmax):
         '''
         Determine the image min/max values based on the specifications.
         If multiple values are specified, take conservative min/max.
@@ -274,16 +272,15 @@ class mapShow:
         if vmax: self.vmax = vmax
 
         if pctmin:
-            pctmin = np.percentile(self.img.compressed().flatten(),pctmin)
+            pctmin = np.percentile(self.img.compressed().flatten(), pctmin)
             self.vmin = np.max([self.vmin, pctmin])
         if pctmax:
-            pctmax = np.percentile(self.img.compressed().flatten(),pctmax)
+            pctmax = np.percentile(self.img.compressed().flatten(), pctmax)
             self.vmax = np.min([self.vmax, pctmax])
 
         # Report min/max value
         if self.verbose == True:
-            print('Clipping to min: {:.3f}/max: {:.3f}'.\
-                format(self.vmin,self.vmax))
+            print('Clipping to min: {:.3f}/max: {:.3f}'.format(self.vmin, self.vmax))
 
     def __equalize__(self):
         '''
@@ -302,8 +299,7 @@ class mapShow:
         Hvals[0], Hvals[-1] = (0, 1)
 
         # Inverse interpolation
-        I = interp1d(hcenters,Hvals,
-            bounds_error=False)
+        I = interp1d(hcenters, Hvals, bounds_error=False)
 
         # Re-mask image
         self.img = I(self.img.data)
@@ -317,7 +313,7 @@ class mapShow:
         Compute a histogram based on the non-masked image values.
         '''
         # Compute histogram
-        hvals, hedges = np.histogram(self.img.compressed().flatten(),bins=128)
+        hvals, hedges = np.histogram(self.img.compressed().flatten(), bins=128)
         hcenters = (hedges[:-1]+hedges[1:])/2
 
         return hcenters, hvals
@@ -334,29 +330,29 @@ class mapShow:
         Hist, histAx = plt.subplots()
 
         # Plot histogram
-        markerline, stemlines, baseline = plt.stem(hcenters,hvals,
-            linefmt='r',markerfmt='',use_line_collection=True)
+        markerline, stemlines, baseline = plt.stem(hcenters, hvals,
+            linefmt='r', markerfmt='', use_line_collection=True)
         stemlines.set_linewidths(None)
         baseline.set_linewidth(0)
-        histAx.plot(hcenters,hvals,'k',linewidth=2)
+        histAx.plot(hcenters, hvals, 'k', linewidth=2)
 
         # Format histogram
         histAx.set_yticks([])
 
-        histAx.set_xlim([self.vmin,self.vmax])
+        histAx.set_xlim([self.vmin, self.vmax])
         histAx.set_xlabel('value')
 
 
     ## Save
-    def saveMap(self,outName,outFmt):
+    def saveMap(self, outName, outFmt):
         '''
         Save the output figure to the given name with the given format.
         '''
         # Construct output name
-        outName = '{:s}.{:s}'.format(outName,outFmt)
+        outName = '{:s}.{:s}'.format(outName, outFmt)
 
         # Save figure
-        self.Fig.savefig(outName,dpi=600,format=outFmt)
+        self.Fig.savefig(outName, dpi=600, format=outFmt)
 
         # Report if requested
         if self.verbose == True: print('Saved to {:s}'.format(outName))
@@ -369,8 +365,7 @@ if __name__ == '__main__':
     inps = cmdParser()
 
     # Instantiate object
-    M = mapShow(inps.imgFile, inps.imgType, inps.imgBand, inps.background, 
-        inps.verbose)
+    M = mapShow(inps.imgFile, inps.imgType, inps.imgBand, inps.background, inps.verbose)
 
     # Plot image
     M.plotImg(inps.dfactor,
@@ -383,7 +378,7 @@ if __name__ == '__main__':
     if inps.plotHist == True: M.plotHistogram()
 
     # Save if requested
-    if inps.outName: M.saveMap(inps.outName,inps.outFmt)
+    if inps.outName: M.saveMap(inps.outName, inps.outFmt)
 
     # Display
     if inps.noDisplay == False: plt.show()
