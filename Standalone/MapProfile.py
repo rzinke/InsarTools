@@ -459,7 +459,7 @@ class imgProfile:
         # Plot profile
         self.__plotProfData__()
 
-    def __clickProfile__(self,event):
+    def __clickProfile__(self, event):
         '''
         Get a profile based on user clicks on the plot.
         '''

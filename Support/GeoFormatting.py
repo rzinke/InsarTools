@@ -2,14 +2,16 @@
 SHORT DESCRIPTION
 Geographic coordinate formatting, especially for GDAL data set compatibility.
 
-INHERITANCES
+FUTUTRE IMPROVEMENTS
 
 TESTING STATUS
 Tested.
 '''
 
 ### IMPORT MODULES ---
+import sys
 import numpy as np
+import matplotlib.pyplot as plt
 from osgeo import gdal
 
 
@@ -176,3 +178,84 @@ def determine_common_bounds(datasets, cropping='union', resolution='fine', verbo
         print('Resolution: {:.5f} x {:.5f}'.format(xRes, yRes))
 
     return bounds, xRes, yRes
+
+
+
+### TRANSFORMATIONS ---
+def xy_to_lola__(tnsf, px, py, verbose=False):
+    '''
+    Convert image coordinates to geo coordinates using transform approach.
+     l = T * p + l0
+     lon  =  |  dx   yshear| * x + lon0
+     lat     |xshear   dy  |   y   lat0
+    '''
+    # Convert transform to matrix, vector
+    T, L0 = vectorize_gdal_transform(tnsf)
+
+    # Formulate position as vector
+    p = np.array([[px, py]]).T
+
+    # Transform
+    lon, lat = T.dot(p) + L0
+
+    # Flatten results
+    lon = lon.flatten()[0]
+    lat = lat.flatten()[0]
+
+    # Report if requested
+    if verbose == True:
+        print('Pixels x/y ({:f}, {:f}) -> Lon/Lat ({:f}, {:f})'.format(px, py, lon, lat))
+
+    return lon, lat
+
+
+def lola_to_xy(tnsf, lon, lat, verbose=False):
+    '''
+    Convert geo coordinates to image x,y using transform approach.
+     p = Tinv.(l - l0)
+     x  =  (|  dx   yshear|)-1 * (lon - lon0)
+     y     (|xshear   dy  |)     (lat - lat0)
+    '''
+    # Convert transform to matrix, vector
+    T, L0 = vectorize_gdal_transform(tnsf)
+
+    # Formulate geo coordinates as vector
+    L = np.array([[lon, lat]]).T
+
+    # Transform
+    Tinv = np.linalg.inv(T)  # inverse transform
+    px, py = Tinv.dot((L-L0))
+
+    # Flatten results
+    px = int(px.flatten()[0])
+    py = int(py.flatten()[0])
+
+    # Report if requested
+    if verbose == True:
+        print('Lat/Lon ({:f}, {:f}) -> pixels y/x ({:d}, {:d})'.format(lat, lon, py, px))
+
+    return px, py
+
+
+def vectorize_gdal_transform(tnsf, verbose=False):
+    '''
+    Format transform matrix and map origin from GDAL geo transform.
+     |  dx   yshear|
+     |xshear   dy  |
+    '''
+    # Parse transform data
+    left, xstep, xskew, top, yskew, ystep  = tnsf
+
+    # Formulate transform matrix
+    T = np.array([[xstep, yskew],
+                  [xskew, ystep]])
+
+    # Origin points as vector
+    L0 = np.array([[left, top]]).T
+
+    # Show if requested
+    if verbose == True:
+        print('T\t|xstep {:.4f}, yskew {:.4f}|\n \t|xskew {:.4f}, ystep {:.4f}|'.format(xstep, yskew, xskew, ystep))
+        print('Origin: |left: {:.4f}|\n        | top: {:.4}|'.format(left, top))
+
+    return T, L0

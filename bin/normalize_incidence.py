@@ -3,11 +3,7 @@
 SHORT DESCRIPTION
 Normalize a LOS velocity map to the sine of the incidence angle.
 
-INHERITANCES
-IOsupport: load_gdal_dataset, save_gdal_dataset
-Masking: create_mask
-GeoFormatting: DS_to_extent
-Viewing: image_percentiles
+FUTURE IMPROVEMENTS
 
 TESTING STATUS
 Tested.
@@ -19,8 +15,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Masking import create_mask
 from GeoFormatting import DS_to_extent
-from IOsupport import load_gdal_dataset, save_gdal_dataset
-from Viewing import image_percentiles
+from IOsupport import confirm_outname_ext, confirm_outdir, load_gdal_dataset, save_gdal_dataset
+from Viewing import image_percentiles, plot_raster
 
 
 ### PARSER ---
@@ -33,20 +29,22 @@ def createParser():
     parser = argparse.ArgumentParser(description=Description,
         formatter_class=argparse.RawTextHelpFormatter, epilog=Examples)
 
-    parser.add_argument('-v','--velocity', dest='vName', type=str,
+    InputArgs = parser.add_argument_group('INPUTS')
+    InputArgs.add_argument('-v','--velocity', dest='vName', type=str,
         help='Velocity map filename.')
-    parser.add_argument('-i','--incidence', dest='iName', type=str,
+    InputArgs.add_argument('-i','--incidence', dest='iName', type=str,
         help='Incidence map filename.')
-    parser.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
+    InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
         help='Arguments for masking values.')
-    parser.add_argument('--to-LOS', dest='normalize', action='store_false',
+    InputArgs.add_argument('--to-LOS', dest='normalize', action='store_false',
         help='Project back into LOS (multiply by sin(incidence angle)).')
 
-    parser.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
+    OutputArgs = parser.add_argument_group('OUTPUTS')
+    OutputArgs.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
         help='Output name.')
-    parser.add_argument('--verbose', dest='verbose', action='store_true', 
+    OutputArgs.add_argument('--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
-    parser.add_argument('-p','--plot', dest='plot', action='store_true', 
+    OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true', 
         help='Plot inputs and outputs.')
     return parser
 
@@ -107,32 +105,28 @@ def plot_datasets(inVelocity, incidence, outVelocity, mask, extent):
     '''
     Plot original and normalized/projected data sets.
     '''
-    # Mask maps
-    inVelocity = np.ma.array(inVelocity, mask=(mask==0))
-    incidence = np.ma.array(incidence, mask=(mask==0))
-    outVelocity = np.ma.array(outVelocity, mask=(mask==0))
-
     # Spawn figure
     fig, [axVel, axInc, axNorm] = plt.subplots(ncols=3)
     cbarOrient = 'horizontal'
 
     # Plot input velocity
     vmin, vmax = image_percentiles(inVelocity)
-    caxVel = axVel.imshow(inVelocity, extent=extent,
-        cmap='jet', vmin=vmin, vmax=vmax)
+    fig, axVel = plot_raster(inVelocity, mask=mask, extent=extent,
+        cmap='jet', vmin=vmin, vmax=vmax, cbarOrient=cbarOrient,
+        fig=fig, ax=axVel)
     axVel.set_title('Orig. veloc.')
-    fig.colorbar(caxVel, ax=axVel, orientation=cbarOrient)
 
     # Plot incidence field
-    caxInc = axInc.imshow(incidence, extent=extent)
+    fig, axInc = plot_raster(incidence, mask=mask, extent=extent,
+         cbarOrient=cbarOrient,
+         fig=fig, ax=axInc)
     axInc.set_title('Incid.')
-    fig.colorbar(caxInc, ax=axInc, orientation=cbarOrient)
 
     # Plot normalized velocity field
-    caxNorm = axNorm.imshow(outVelocity, extent=extent,
-        cmap='jet', vmin=vmin, vmax=vmax)
+    fig, axNorm = plot_raster(outVelocity, mask=mask, extent=extent,
+        cmap='jet', vmin=vmin, vmax=vmax, cbarOrient=cbarOrient,
+        fig=fig, ax=axNorm)
     axNorm.set_title('Normd. veloc.')
-    fig.colorbar(caxNorm, ax=axNorm, orientation=cbarOrient)    
 
 
 
@@ -171,11 +165,12 @@ if __name__ == '__main__':
 
 
     ## Save to file
-    # Check filename
-    if inps.outName[-4:] != '.tif': inps.outName += '.tif'
+    # Checks
+    outName = confirm_outname_ext(inps.outName)  # confirm file extension
+    confirm_outdir(outName)  # confirm output directory exists
 
-    # Save to GDAL data set
-    save_gdal_dataset(inps.outName, projVel, DSvel, verbose=inps.verbose)
+    # Save data set
+    save_gdal_dataset(outName, projVel, mask=mask, exDS=DSvel, verbose=inps.verbose)
 
 
     ## Plot

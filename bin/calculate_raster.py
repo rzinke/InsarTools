@@ -3,12 +3,7 @@
 SHORT DESCRIPTION
 Create a new raster by doing math on existing rasters.
 
-INHERITANCES
-IOsupport: load_gdal_dataset, save_gdal_dataset, pick_dataset
-Masking: create_mask
-RasterResampling: match_rasters
-GeoResampling: DS_to_extent
-Viewing: image_percentiles
+FUTURE IMPROVEMENTS
 
 TESTING STATUS
 Tested.
@@ -18,11 +13,11 @@ Tested.
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from IOsupport import load_gdal_datasets, pick_dataset, check_outname_ext, save_gdal_dataset
-from Masking import create_mask
+from IOsupport import load_gdal_datasets, pick_dataset, confirm_outdir, confirm_outname_ext, save_gdal_dataset
+from Masking import create_common_mask
 from RasterResampling import match_rasters
 from GeoFormatting import DS_to_extent
-from Viewing import image_percentiles
+from Viewing import plot_raster
 
 
 ### PARSER ---
@@ -34,22 +29,24 @@ def createParser():
     parser = argparse.ArgumentParser(description=Description,
         formatter_class=argparse.RawTextHelpFormatter, epilog=Examples)
 
-    # Necessary 
-    parser.add_argument(dest='varStr', nargs='+', type=str,
+    # Inputs
+    InputArgs = parser.add_argument_group('INPUTS')
+    InputArgs.add_argument(dest='varStr', nargs='+', type=str,
         help='Image designation/filename pairs, e.g., A img1.tif B img2.tif C img3.tif ...')
-    parser.add_argument('-f','--formula', dest='formula', type=str, required=True,
+    InputArgs.add_argument('-f','--formula', dest='formula', type=str, required=True,
         help='Math operation(s) to be applied. Refer to the images as \"A\"-\"Z\".')
-    parser.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
-        help='Arguments for masking values.')
+    InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
+        help='Arguments for masking values/maps. ([None]).')
 
     # Outputs
-    parser.add_argument('-v','--verbose', dest='verbose', action='store_true',
+    OutputArgs = parser.add_argument_group('OUTPUTS')
+    OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true',
         help='Verbose mode.')
-    parser.add_argument('-p','--plot', dest='plot', action='store_true',
+    OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true',
         help='Plot outputs.')
-    parser.add_argument('--plot-inputs', dest='plotInputs', action='store_true',
+    OutputArgs.add_argument('--plot-inputs', dest='plotInputs', action='store_true',
         help='Plot inputs.')
-    parser.add_argument('-o','--outName', dest='outName', default='Out',
+    OutputArgs.add_argument('-o','--outName', dest='outName', default='Out',
         help='Name of output file.')
 
     return parser
@@ -75,38 +72,6 @@ def load_images(varStr, verbose=False):
     datasets = load_gdal_datasets(fileNames, varNames, verbose=verbose)
 
     return datasets
-
-
-
-### MASKING ---
-def build_mask(datasets, maskArgs, verbose=False):
-    '''
-    Build a master mask from the given datasets and mask arguments.
-    Data sets must be resampled to the same dimensions.
-    '''
-    if verbose == True: print('Creating common mask')
-
-    # Setup
-    varNames = list(datasets.keys())  # variable names
-    M = datasets[varNames[0]].RasterYSize  # map y dim
-    N = datasets[varNames[0]].RasterXSize  # map x dim
-    commonMask = np.ones((M, N))  # empty common mask
-
-    # Confirm that map sizes are the same
-    for varName in varNames:
-        # Retrieve image values
-        img = datasets[varName].GetRasterBand(1).ReadAsArray()
-
-        # Check that img size is the same for each data set
-        assert img.shape == (M, N), 'Dataset {:s} is not the same size as those before it'
-
-        # Compute individual mask
-        mask = create_mask(img, maskArgs, verbose=verbose)
-
-        # Modify common mask
-        commonMask[mask==0] = 0
-
-    return commonMask
 
 
 
@@ -145,35 +110,23 @@ def plot_inputs(datasets, mask):
     # Setup
     nDatasets = len(list(datasets.keys()))
     fig, axes = plt.subplots(ncols=nDatasets+1)
+    cbarOrient = 'horizontal'
 
     # Loop through inputs to plot
     for i, varName in enumerate(datasets.keys()):
-        # Grab extent from first data set
-        if i == 0: extent = DS_to_extent(datasets[varName])
-
-        # Retrieve image
-        img = datasets[varName].GetRasterBand(1).ReadAsArray()
-
-        # Mask image
-        img = np.ma.array(img, mask=(mask==0))
-
-        # Compute clip values
-        vmin, vmax = image_percentiles(img)
-
-        # Plot image
-        cax = axes[i].imshow(img, extent=extent,
-            cmap='jet', vmin=vmin, vmax=vmax)
-
-        # Format plot
+        # Plot data set
+        fig, axes[i] = plot_raster(datasets[varName], mask=mask,
+            cmap='jet', cbarOrient=cbarOrient, minPct=1, maxPct=99,
+            fig=fig, ax=axes[i])
         axes[i].set_title(varName)
-        fig.colorbar(cax, ax=axes[i], orientation='horizontal')
 
     # Plot common mask
-    cax = axes[-1].imshow(mask, extent=extent)
-
-    # Format mask plot
+    fig, axes[-1] = plot_raster(mask,
+        cmap='magma', cbarOrient=cbarOrient,
+        vmin=0, vmax=1,
+        fig=fig, ax=axes[-1])
     axes[-1].set_title('Mask')
-    fig.colorbar(cax, ax=axes[-1], orientation='horizontal')
+    axes[-1].set_xticks([]); axes[-1].set_yticks([])
     fig.suptitle('Inputs')
 
 
@@ -181,22 +134,12 @@ def plot_output(img, mask, extent):
     '''
     Plot the output dataset.
     '''
-    # Spawn figure
-    fig, ax = plt.subplots()
-
-    # Mask image
-    img = np.ma.array(img, mask=(mask==0))
-
-    # Compute clip values
-    vmin, vmax = image_percentiles(img)
-
-    # Plot image
-    cax = ax.imshow(img, extent=extent,
-        cmap='jet', vmin=vmin, vmax=vmax)
+    # Plot raster
+    fig, ax = plot_raster(img, mask=mask, extent=extent,
+        cmap='jet', cbarOrient='vertical', minPct=1, maxPct=99)
 
     # Format plot
     ax.set_title('Result')
-    fig.colorbar(cax, ax=ax, orientation='horizontal')
 
 
 
@@ -219,7 +162,7 @@ if __name__ == '__main__':
 
     ## Determine mask
     # Create master mask for data set
-    mask = build_mask(datasets, inps.maskArgs, verbose=inps.verbose)
+    mask = create_common_mask(datasets, inps.maskArgs, verbose=inps.verbose)
 
     # Plot inputs if requested
     if inps.plotInputs == True:
@@ -233,14 +176,17 @@ if __name__ == '__main__':
     img = apply_formula(datasets, inps.formula, mask=None, verbose=inps.verbose)
 
 
-    ## Outputs
-    # Save as GDAL dataset
-    outName = check_outname_ext(inps.outName)
-    save_gdal_dataset(outName, img, pick_dataset(datasets), verbose=inps.verbose)
+    ## Save to file
+    # Checks
+    outName = confirm_outname_ext(inps.outName)  # confirm file extension
+    confirm_outdir(outName)  # confirm output directory exists
 
-    # Plot output
-    if inps.plot == True:
-        plot_output(img, mask, DS_to_extent(pick_dataset(datasets)))
+    # Save data set
+    save_gdal_dataset(outName, img, mask=mask, exDS=pick_dataset(datasets), verbose=inps.verbose)
+
+
+    ## Plot
+    if inps.plot == True: plot_output(img, mask, DS_to_extent(pick_dataset(datasets)))
 
 
     plt.show()

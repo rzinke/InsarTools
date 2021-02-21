@@ -2,10 +2,10 @@
 SHORT DESCRIPTION
 Determine a single, binary mask given an image and one or more mask values.
 
-INHERITANCES
+FUTURE IMPROVEMENTS
 
 TESTING STATUS
-Tested for background value application. Other mask types need further testing.
+Tested.
 '''
 
 ### IMPORT MODULES ---
@@ -13,6 +13,7 @@ import os
 import numpy as np
 from osgeo import gdal
 from scipy.stats import mode
+from Checks import check_dataset_sizes
 
 
 
@@ -38,6 +39,64 @@ def detect_background(img, verbose=False):
 
 
 ### GENERATE MASK ---
+def create_common_mask(datasets, maskArgs, verbose=False):
+    '''
+    Generate a common (conservative) mask for all data sets.
+    Data sets must already be sampled at the same dimensions.
+    '''
+    if verbose == True: print('Creating common mask')
+
+    # Check raster sizes are consistent
+    M, N = check_dataset_sizes(datasets)
+
+    # Create masks
+    masks = mask_datasets(datasets, maskArgs, verbose=verbose)
+
+    # Initial common mask
+    commonMask = np.ones((M, N))  # initially pass all values
+
+    # Accumulate mask values
+    for mskName in masks.keys():
+        # Retrieve individual mask
+        mask = masks[mskName]
+
+        # Add to common mask
+        commonMask[mask==0] = 0
+
+    return commonMask
+
+
+def mask_datasets(datasets, maskArgs, verbose=False):
+    '''
+    Generate masks for multiple GDAL data sets.
+    '''
+    if verbose == True: print('Generating masks for multiple data sets')
+
+    # Setup
+    masks = {}  # empty dictionary
+
+    # Loop through data sets
+    for dsName in datasets.keys():
+        masks[dsName] = mask_dataset(datasets[dsName], maskArgs, verbose=verbose)
+
+    return masks
+
+
+def mask_dataset(DS, maskArgs, verbose=False):
+    '''
+    Mask a GDAL data set.
+    '''
+    if verbose == True: print('Masking data set')
+
+    # Retrieve image
+    img = DS.GetRasterBand(1).ReadAsArray()
+
+    # Create mask
+    mask = create_mask(img, maskArgs, verbose=verbose)
+
+    return mask
+
+
 def create_mask(img, maskArgs, verbose=False):
     '''
     Provide an image array, and one or more files or values to mask.
@@ -118,3 +177,18 @@ def create_mask(img, maskArgs, verbose=False):
             if verbose == True: print('Mask value {} interpreted as {:s}'.format(maskArg, argType))
 
     return mask
+
+
+
+### MISCELLANEOUS ---
+def find_mask_overlap(primaryMask, secondaryMask):
+    '''
+    Find area where there is data for both masks.
+    '''
+    # Setup
+    overlap = np.zeros(primaryMask.shape)  # nothing passes at first
+
+    # Find area of overlap
+    overlap[(primaryMask > 0) & (secondaryMask > 0)] = 1
+
+    return overlap

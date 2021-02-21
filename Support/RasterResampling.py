@@ -11,11 +11,12 @@ match_rasters 'intersection' feature needs to be tested.
 
 ### IMPORT MODULES ---
 from osgeo import gdal
-from GeoFormatting import determine_common_bounds
+from GeoFormatting import determine_common_bounds, get_raster_size
 
 
 ### RASTER RESAMPLING---
-def gdal_resample(dataset, bounds, xRes, yRes, alg='near', outName=None, verbose=False):
+def gdal_resample(dataset, bounds, xRes=None, yRes=None, M=None, N=None, alg='near',
+    outName=None, verbose=False):
     '''
     Resample data set using GDAL warp.
     '''
@@ -29,7 +30,7 @@ def gdal_resample(dataset, bounds, xRes, yRes, alg='near', outName=None, verbose
     # Resample
     dataset = gdal.Warp(outName, dataset,
         options=gdal.WarpOptions(format=fmt, outputBounds=bounds,
-            xRes=xRes, yRes=yRes,
+            xRes=xRes, yRes=yRes, width=N, height=M,
             resampleAlg=alg))
 
     return dataset
@@ -53,6 +54,9 @@ def match_rasters(datasets, cropping='union', resolution='fine', verbose=False):
         dsNames = list(datasets.keys())
         datasets = list(datasets.values())
 
+    # Size of original raster
+    M, N = get_raster_size(datasets[0])
+
     # Determine common bounds and resolution
     bounds, xRes, yRes = determine_common_bounds(datasets, cropping, resolution, verbose)
 
@@ -60,7 +64,7 @@ def match_rasters(datasets, cropping='union', resolution='fine', verbose=False):
     resDatasets = []  # empty list to store resampled data sets
     for dataset in datasets:
         # Resample data set
-        resDatasets.append(gdal_resample(dataset, bounds, xRes, yRes))
+        resDatasets.append(gdal_resample(dataset, bounds, xRes=xRes, yRes=yRes))
 
     # Reformat as dictionary if input type was dictionary
     if dsNames is not None:
