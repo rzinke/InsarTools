@@ -16,7 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from IOsupport import load_gdal_dataset, confirm_outdir, confirm_outname_ext, save_gdal_dataset
 from GeoFormatting import DS_to_extent
-from RadarGeometries import aria_geom_to_los, aria_geom_to_vector, isce_geom_to_los, isce_geom_to_vector
+from RadarGeometries import aria_to_los, aria_geom_to_vector, isce_to_los, isce_geom_to_vector
 from Masking import create_mask
 from Viewing import plot_look_vectors, raster_multiplot
 
@@ -51,6 +51,8 @@ def createParser():
         help='North component (float or filename).')
     InputArgs.add_argument('-z','--vert', dest='Vinpt', type=str, required=True,
         help='Vertical component (float or filename).')
+    InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
+        help='Arguments for masking values/maps. ([None]).')
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
@@ -69,15 +71,19 @@ def cmdParser(iargs = None):
 
 ### CHECKS ---
 class LOSproject:
-    def __init__(self, convention, incInpt, azInpt, geomFile, Einpt, Ninpt, Vinpt, verbose=False):
+    def __init__(self, convention, incInpt, azInpt, geomFile, Einpt, Ninpt, Vinpt, maskArgs, verbose=False):
         '''
         Class for converting three components of motion to satellite line of 
          sight based on radar geometry.
 
         Inherits:
             os
-            IOsupport: load_gdal_dataset
-            RadarGeometries: aria_geom_to_los, isce_geom_to_los
+            numpy
+            IOsupport: load_gdal_dataset, confirm_outdir, confirm_outname_ext, save_gdal_dataset
+            GeoFormatting: DS_to_extent
+            RadarGeometries: aria_to_los, aria_geom_to_vector, isce_to_los, isce_geom_to_vector
+            Masking create_mask
+            Viewing: plot_look_vectors, raster_multiplot
 
         To initialize, check that inputs types are consistent. Then compute LOS.
         '''
@@ -102,7 +108,7 @@ class LOSproject:
         self.__check_file_sizes__()
 
         # Mask
-        self.__compute_mask__()
+        self.__compute_mask__(maskArgs)
 
         # Compute LOS values
         self.__compute_los__()
@@ -213,9 +219,9 @@ class LOSproject:
 
             except:
                 if label is not None:
-                    print('{:s} value could not be identified'.format(label))
+                    print('{:s} value could not be identified. Exiting.'.format(label))
                 else:
-                    print('Value could not be identified')
+                    print('Value could not be identified. Exiting.')
 
                 exit()
 
@@ -373,7 +379,7 @@ class LOSproject:
 
 
     ## Masking
-    def __compute_mask__(self):
+    def __compute_mask__(self, maskArgs):
         '''
         Compute a common mask for the geometries and inputs, if maps are specified.
         '''
@@ -388,11 +394,11 @@ class LOSproject:
 
             if self.geomType == 'map':
                 # Create mask based on the geometry inputs
-                self.mask[create_mask(self.inc, ['bg']) == 0] = 0
+                self.mask[create_mask(self.inc, maskArgs) == 0] = 0
 
             elif self.inptType == 'map':
                 # Create mask based on the displacement inputs
-                self.mask[create_mask(self.E, ['bg']) == 0] = 0
+                self.mask[create_mask(self.E, maskArgs) == 0] = 0
         else:
             self.mask = None
 
@@ -401,7 +407,7 @@ class LOSproject:
     def __compute_los__(self):
         '''
         Compute the LOS value(s) based on the satellite geometry.
-        This function is a wrapper for __aria_geom_to_los__ and __isce_geom_to_los__.
+        This function is a wrapper for __aria_to_los__ and __isce_to_los__.
         '''
         if self.verbose == True:
             print('*'*32)
@@ -409,11 +415,11 @@ class LOSproject:
 
         # Convert to LOS using the ARIA convention
         if self.convention in ['aria']:
-            self.LOS = aria_geom_to_los(self.E, self.N, self.V, self.inc, self.az, verbose=self.verbose)
+            self.LOS = aria_to_los(self.E, self.N, self.V, self.inc, self.az, verbose=self.verbose)
 
         # Convert to LOS using the ISCE convention
         elif self.convention in ['isce']:
-            self.LOS = isce_geom_to_los(self.E, self.N, self.V, self.inc, self.az, verbose=self.verbose)
+            self.LOS = isce_to_los(self.E, self.N, self.V, self.inc, self.az, verbose=self.verbose)
 
 
     ## Saving
@@ -495,6 +501,7 @@ if __name__ == '__main__':
     projection = LOSproject(convention=inps.convention,
         azInpt=inps.azInpt, incInpt=inps.incInpt, geomFile=inps.geomFile,
         Einpt=inps.Einpt, Ninpt=inps.Ninpt, Vinpt=inps.Vinpt,
+        maskArgs=inps.maskArgs,
         verbose=inps.verbose)
 
     # Save

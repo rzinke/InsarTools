@@ -12,6 +12,7 @@ Tested.
 import matplotlib.pyplot as plt
 from GeoFormatting import get_raster_size, parse_transform, lola_to_xy
 from Viewing import *
+import time
 
 
 ### DATASET FORMATTING ---
@@ -77,3 +78,24 @@ def check_loc_in_dataset(DS, mask, lon, lat, verbose=False):
     if verbose == True: print('Checks passed.')
 
     return px, py
+
+
+
+### MISCELLANEOUS ---
+def timed_run(fcn, label=None, verbose=False):
+    '''
+    Clock the time it takes to complete a function.
+    '''
+    # Start clock
+    startTime = time.time()
+
+    # Run function
+    outputs = fcn
+
+    # End clock
+    endTime = time.time()
+
+    # Report if requested
+    if verbose == True: print('{:f} to complete'.format(endTime-startTime), label)
+
+    return outputs
