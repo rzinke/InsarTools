@@ -635,7 +635,7 @@ class imgProfile:
 
 
     ### Saving
-    def saveProfile(self,event=None):
+    def saveProfile(self, event=None):
         '''
         Save profile location and data points to a text file.
         '''

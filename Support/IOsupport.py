@@ -10,7 +10,9 @@ Tested.
 
 ### IMPORT MODULES ---
 import os
+import numpy as np
 from osgeo import gdal
+import h5py
 
 
 ### NAME FORMATTING ---
@@ -72,6 +74,19 @@ def confirm_outname_ext(outName, ext=['tif', 'tiff'], verbose=False):
     return outName
 
 
+def parse_extension(fname, verbose=False):
+    '''
+    Retrieve the filename exension.
+    '''
+    # Get extension
+    ext = fname.split('.')[-1]
+
+    # Report if requested
+    if verbose == True: print('Filename extension: {:s}'.format(ext))
+
+    return ext
+
+
 
 ### LOADING GDAL DATASETS ---
 def load_gdal_datasets(dsPaths, dsNames=None, verbose=False):
@@ -119,9 +134,7 @@ def load_gdal_dataset(dsPath, verbose=False):
     if verbose == True: print('Loading data set')
 
     # Check that data set path exists
-    if not os.path.exists(dsPath):
-        print('ERROR: {:s} does not exist!!!'.format(dsPath))
-        exit()
+    check_exists(dsPath)
 
     # Open GDAL data set
     DS = gdal.Open(dsPath, gdal.GA_ReadOnly)
@@ -192,7 +205,94 @@ def save_gdal_dataset(outName, imgs, mask=None, exDS=None, proj=None, tnsf=None,
 
 
 
+### HDF5 LOADING ---
+def load_hdf5_dataset(dsName, verbose=False):
+    '''
+    Check that the specified HDF5 data set exists and load it.
+    '''
+    # Check that HDF5 file exists
+    check_exists(dsName)
+
+    # Load HDF5 data set
+    DS = h5py.File(dsName, 'r')
+
+    # Report if requested
+    if verbose == True: print('Loaded HDF5 file: {:s}'.format(dsName))
+
+    return DS
+
+
+def load_mintpy_velocity(velName, verbose=False):
+    '''
+    Load and parse a MintPy velocity.h5 file.
+    '''
+    # Load file after checking it exists
+    with load_hdf5_dataset(velName, verbose=verbose) as DS:
+        # Parse file contents
+        velocity = DS['velocity'][:]  # velocity
+
+    # Report if requested
+    if verbose == True:
+        print('Parsed MintPy velocity: {:d} x {:d} map'.format(*velocity.shape))
+
+    return velocity
+
+
+def load_mintpy_timeseries(tsName, verbose=False):
+    '''
+    Load and parse a MintPy timeseries.h5 file.
+    '''
+    # Load file after checking it exists
+    with load_hdf5_dataset(tsName, verbose=verbose) as DS:
+        # Parse file contents
+        dates, disps = parse_mintpy_timeseries(DS, verbose=verbose)
+
+    return dates, disps
+
+
+def parse_mintpy_timeseries(DS, verbose=False):
+    '''
+    Convenience function for parsing a MintPy timeseries data set.
+    '''
+    # Parse data set
+    dates = [date.astype(str) for date in DS['date']]  # dates
+    disps = DS['timeseries'][:]  # timeseries
+
+    # Report if requested
+    if verbose == True:
+        print('Parsed MintPy displacements and dates')
+        print('{:d} dates'.format(len(dates)))
+        print('{:d} displacements, in {:d} x {:d} maps'.format(*disps.shape))
+
+    return dates, disps
+
+
+def load_mintpy_geometry(geomName, verbose=False):
+    '''
+    Load MintPy geometry data set.
+    '''
+    # Load file after checking it exists
+    with load_hdf5_dataset(geomName, verbose=verbose) as DS:
+        # Parse file contents
+        inc = DS['incidenceAngle'][:]  # incidence
+        az = DS['azimuthAngle'][:]  # azimuth
+
+    # Report if requested
+    if verbose == True:
+        print('Loaded MintPy geometry file')
+        print('Parsed incidence and azimuth')
+        print('Sizes: {:d} x {:d}'.format(*inc.shape))
+
+
+
 ### MISCELLANEOUS ---
+def check_exists(fname):
+    '''
+    Check that a file exists.
+    '''
+    assert os.path.exists(fname), 'ERROR: {:s} does not exist!!!'.format(fname)
+
+
 def pick_dataset(datasets, verbose=False):
     '''
     Return the first entry in a dictionary.

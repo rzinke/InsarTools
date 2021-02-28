@@ -12,10 +12,11 @@ Tested.
 ### IMPORT MODULES ---
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime as dt
 
 
 ### TIMESERIES FITTING ---
-def fit_linear(x, y, verbose=False):
+def fit_linear(x, y, verbose=False, plot=False):
     '''
     Fit an offset and secular trend to a 1D signal.
     '''
@@ -27,7 +28,7 @@ def fit_linear(x, y, verbose=False):
     G = np.ones((N, 2))
     G[:,1] = x.flatten()
 
-    # Plane fit parameters
+    # Invert for fit parameters
     B = np.linalg.inv(np.dot(G.T, G)).dot(G.T).dot(y)
 
     # Reconstruct curve
@@ -36,7 +37,7 @@ def fit_linear(x, y, verbose=False):
     # Compute residuals
     res = y - yhat
     RSS = np.sqrt(np.sum(res**2))  # root sum of squares
-    meanRes = RSS/len(res)  # mean residual
+    expRes = RSS/len(res)  # mean residual
 
     # Report if requested
     if verbose == True:
@@ -51,11 +52,10 @@ def fit_linear(x, y, verbose=False):
         ax.plot(x, y, 'k.', label='data')
         ax.plot(x, yhat, 'b', label='fit')
 
-    print('Not functional yet ;)')
-    exit()
+    return yhat, B
 
 
-def fit_periodic(x, y, freq=1, verbose=False):
+def fit_periodic(x, y, freq=1, verbose=False, plot=False):
     '''
     Fit a periodic, linear, and offset to a 1D signal.
     Assumes a period/freq of 1 year.
@@ -67,11 +67,34 @@ def fit_periodic(x, y, freq=1, verbose=False):
     # Design matrix
     G = np.ones((N, 4))
     G[:,1] = x.flatten()
-    G[:,2] = np.sin(2*np.pi*freq*x)
-    G[:,3] = np.cos(2*np.pi*freq*x)
+    G[:,2] = np.sin(2*np.pi*freq*x).flatten()
+    G[:,3] = np.cos(2*np.pi*freq*x).flatten()
 
-    print('Not functional yet ;)')
-    exit()
+    # Invert for fit parameters
+    B = np.linalg.inv(np.dot(G.T, G)).dot(G.T).dot(y)
+
+    # Reconstruct curve
+    yhat = G.dot(B)
+
+    # Compute residuals
+    res = y - yhat
+    RSS = np.sqrt(np.sum(res**2))  # root sum of squares
+    expRes = RSS/len(res)  # mean residual
+
+    # Report if requested
+    if verbose == True:
+        B = B.flatten()
+        print('Periodic fit')
+        print('x^0 {:f}\nx^1 {:f}\nsin(x) {:f}\ncos(x) {:f}'.format(*B))
+        print('Expected residual: {:f}'.format(expRes))
+
+    # Plot if requested
+    if plot == True:
+        fig, ax = plt.subplots()
+        ax.plot(x, y, 'k.', label='data')
+        ax.plot(x, yhat, 'b', label='fit')
+
+    return yhat, B
 
 
 
@@ -144,3 +167,31 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
         ax.set_title('Surface')
 
     return surface, B
+
+
+
+### MISCELLANEOUS ---
+def dates_to_datetimes(dates, datestr='%Y%m%d', verbose=False):
+    '''
+    Convert a list of date strings to datetime objects.
+    '''
+    if verbose == True:
+        print('Converting {:d} dates to datetimes with format {:s}'.format(len(dates), datestr))
+
+    # Convert to datetimes
+    datetimes = [dt.datetime.strptime(date, datestr) for date in dates]
+
+    return datetimes
+
+
+def time_since_reference(datetimes, refDate=None, verbose=False):
+    '''
+    Find the time difference in days between each date and the reference time.
+    '''
+    # Determine reference date
+    if refDate is None: refDate = datetimes[0]
+
+    # Calculate time differences
+    timedeltas = [(datetime-refDate).days/365.25 for datetime in datetimes]
+
+    return timedeltas
