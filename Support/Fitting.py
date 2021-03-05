@@ -151,8 +151,8 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
     Z = Z.reshape(MN, 1)
 
     # Establish grid
-    y = np.linspace(-1, 1, M)*dy
-    x = np.linspace(-1, 1, N)*dx
+    y = np.linspace(-1, 1, M)/dy
+    x = np.linspace(-1, 1, N)/dx
     X, Y = np.meshgrid(x, y)
 
     # Design matrix - depends on polynomial degree
