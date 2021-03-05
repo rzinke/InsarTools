@@ -13,6 +13,7 @@ Tested.
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
+from scipy import optimize
 
 
 ### TIMESERIES FITTING ---
@@ -86,6 +87,39 @@ def fit_periodic(x, y, freq=1, verbose=False, plot=False):
         B = B.flatten()
         print('Periodic fit')
         print('x^0 {:f}\nx^1 {:f}\nsin(x) {:f}\ncos(x) {:f}'.format(*B))
+        print('Expected residual: {:f}'.format(expRes))
+
+    # Plot if requested
+    if plot == True:
+        fig, ax = plt.subplots()
+        ax.plot(x, y, 'k.', label='data')
+        ax.plot(x, yhat, 'b', label='fit')
+
+    return yhat, B
+
+
+def fit_atan(x, y, initial=None, verbose=False, plot=False):
+    '''
+    Fit an arctangent function to a series of data points.
+    '''
+    # Model function
+    atan = lambda x, a, b: a*np.arctan(b*x)
+
+    # Fit to data points
+    B, cov = optimize.curve_fit(atan, x, y, p0=initial)
+
+    # Reconstruct curve
+    yhat = atan(x, *B)
+
+    # Compute residuals
+    res = y - yhat
+    RSS = np.sqrt(np.sum(res**2))  # root sum of squares
+    expRes = RSS/len(res)  # expected residual
+
+    # Report if requested
+    if verbose == True:
+        print('Arctangent fit')
+        print('a: {:f}, b: {:f}'.format(*B))
         print('Expected residual: {:f}'.format(expRes))
 
     # Plot if requested

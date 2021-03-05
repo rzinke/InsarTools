@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     ## Save to file
     outName = confirm_outname_ext(inps.outName, verbose=inps.verbose)
-    save_gdal_dataset(outName, derampImg, DS, verbose=inps.verbose)
+    save_gdal_dataset(outName, derampImg, mask=mask, exDS=DS, verbose=inps.verbose)
 
 
     ## Plot results

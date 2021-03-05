@@ -152,6 +152,7 @@ def save_gdal_dataset(outName, imgs, mask=None, exDS=None, proj=None, tnsf=None,
     Save image to georeferenced data set, given an example data set.
 
     INPUTS
+        ourName - data set output name
         imgs - single image or list of images; if a list is provided, each item
          in the list will be written to a separate band in the order in which they occcur
         (mask) is the mask to be applied to all bands. Masked values set to zero.
@@ -282,6 +283,76 @@ def load_mintpy_geometry(geomName, verbose=False):
         print('Loaded MintPy geometry file')
         print('Parsed incidence and azimuth')
         print('Sizes: {:d} x {:d}'.format(*inc.shape))
+
+
+
+### POLYLINE LOADING ---
+def load_polyline(polylineName, verbose=False):
+    '''
+    Load a polyline from a text file in WKT geom or x, y format.
+    '''
+    if verbose == True: print('Loading polyline file...')
+
+    # Check file exists
+    check_exists(polylineName)
+
+    # Load file contents
+    with open(polylineName, 'r') as polylineFile:
+        lines = polylineFile.readlines()
+
+    # Determine if first line is header
+    firstLine = lines[0]  # first line in file
+    elems = firstLine.split() # first line elements
+    firstElem = elems[0].strip(',')  # first element in file
+    try:
+        # Check whether first line is valid data
+        float(firstElem)  # try converting to float
+    except:
+        # Leave out first line
+        lines = lines[1:]
+
+    # Check whether type is WKT or simple points
+    firstLine = lines[0]  # data lines
+    elems = firstLine.split()  # data elements in first line
+    firstElem = elems[0].strip(',')  # check first data element in file
+    if firstElem == 'Point':
+        fmt = 'wkt'
+    else:
+        try:
+            # Check whether first element is convertable to float
+            float(firstElem)
+            fmt = 'points'
+        except:
+            print('Cannot identify input type.')
+            exit()
+
+    # Parse file based on format
+    x = []; y = []  # empty lists
+    if fmt == 'wkt':
+        for line in lines:
+            coordsStart = line.index('(')
+            coordsEnd = line.index(')')
+            coords = line[coordsStart+1:coordsEnd]
+            coords = coords.split()
+            coords = [float(coord) for coord in coords]
+            x.append(coords[0])
+            y.append(coords[1])
+    elif fmt == 'points':
+        for line in lines:
+            coords = line.split()
+            coords = [coord.strip('\n').strip(',') for coord in coords]
+            coords = [float(coord) for coord in coords]
+            y.append(coords[0])
+            x.append(coords[1])
+
+    nVertices = len(x)
+
+    # Report if requested
+    if verbose == True:
+        print('... loaded with {:s} format'.format(fmt))
+        print('{:d} vertices detected'.format(nVertices))
+
+    return x, y
 
 
 
