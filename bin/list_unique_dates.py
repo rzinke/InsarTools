@@ -98,7 +98,7 @@ def dates_from_fnames(scheme, fnames, verbose=False, showDates=False):
     '''
     Get a list of all dates from the file names.
     '''
-    print('Formatting dates with scheme {:s}'.format(scheme))
+    if verbose == True: print('Formatting dates with scheme {:s}'.format(scheme))
 
     # Proceed according to scheme
     if scheme == 'aria unwrappedphase':
@@ -116,8 +116,8 @@ def dates_from_fnames(scheme, fnames, verbose=False, showDates=False):
     if showDates == True:
         [print(date) for date in dates]
 
-    if verbose == True:
-        print('{:d} unique dates detected'.format(len(dates)))
+    # Report as standard output
+    print('{:d} unique dates detected'.format(len(dates)))
 
 
 def get_basename(fnames):
