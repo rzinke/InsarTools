@@ -4,7 +4,6 @@ Conversion factors and routines for different radar geometry conventions.
 
 FUTUTRE IMPROVEMENTS
     * Weighting for inversion scheme
-    * Parallelize inversion scheme
 
 TESTING STATUS
 Tested.
@@ -13,7 +12,7 @@ Tested.
 ### IMPORT MODULES ---
 import numpy as np
 from IOsupport import load_gdal_dataset
-import timeit
+import multiprocessing as mp
 
 
 ### ARIA GEOMETRIES ---
@@ -62,10 +61,15 @@ def aria_geom_to_vector(inc, az, verbose=False):
 
     # Report if requested
     if verbose == True:
+        MedianPx = np.median(Px)
+        MedianPy = np.median(Py)
+        MedianPz = np.median(Pz)
+        Plen = np.linalg.norm([MedianPx, MedianPy, MedianPz])
         print('Median pointing vector:')
-        print('\tPx: {:.6f}'.format(np.median(Px)))
-        print('\tPy: {:.6f}'.format(np.median(Py)))
-        print('\tPz: {:.6f}'.format(np.median(Pz)))
+        print('\tPx: {:.6f}'.format(MedianPx))
+        print('\tPy: {:.6f}'.format(MedianPy))
+        print('\tPz: {:.6f}'.format(MedianPz))
+        print('\tLength: {:.4f}'.format(Plen))
 
     return Px, Py, Pz
 
@@ -139,10 +143,15 @@ def isce_geom_to_vector(inc, az, verbose=False):
 
     # Report if requested
     if verbose == True:
+        MedianPx = np.median(Px)
+        MedianPy = np.median(Py)
+        MedianPz = np.median(Pz)
+        Plen = np.linalg.norm([MedianPx, MedianPy, MedianPz])
         print('Median pointing vector:')
-        print('\tPx: {:.6f}'.format(np.median(Px)))
-        print('\tPy: {:.6f}'.format(np.median(Py)))
-        print('\tPz: {:.6f}'.format(np.median(Pz)))
+        print('\tPx: {:.6f}'.format(MedianPx))
+        print('\tPy: {:.6f}'.format(MedianPy))
+        print('\tPz: {:.6f}'.format(MedianPz))
+        print('\tLength: {:.4f}'.format(Plen))
 
     return Px, Py, Pz
 
@@ -156,7 +165,7 @@ def isce_to_los(ux, uy, uz, inc, az, verbose=False):
     S = isce_sensitivity_factors(inc, az)
 
     # Compute line of sight displacement
-    LOS = ux*S.eFactor + uy*S.nFactor + uz*S.vFactor
+    LOS = ux*S.eFactor*S.hFactor + uy*S.nFactor*S.hFactor + uz*S.vFactor
 
     # Report if requested
     if verbose == True:
@@ -238,8 +247,7 @@ def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, verbose=False):
         print('Solving for {:d} components based on {:d} observations'.format(nComponents, nObs))
 
     # Create matrices based on number of components for which to solve
-    #  Pmatrices will be (MN x nObs x nComponents) in size
-    if verbose == True: print('creating matrices')
+    if verbose == True: print('... creating matrices')
 
     if nComponents == 2:
         Pmatrices = create_2comp_pointing_matrices(Px, Pz)
@@ -248,15 +256,23 @@ def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, verbose=False):
         Pmatrices = create_3comp_pointing_matrices(Px, Py, Pz)
 
     # Format los measurements into a (MN x nObs) array
-    los = los.reshape(nObs, M*N)
+    los = los.reshape(nObs, M*N)  # reshape into 1D array
+    los = [los[:,i] for i in range(M*N)]  # reformat into list
 
     # Invert for displacement
-    if verbose == True: print('solving for components')
+    if verbose == True: print('... solving for components')
 
     uhat = solve_los_for_components(Pmatrices, los)
-    uhat = uhat.reshape(nComponents, M, N)  # reshape array
 
-    return uhat
+    # Reformat estimated displacement
+    Uhat = np.zeros((nComponents, M*N))  # empty array
+
+    for i in range(M*N):
+        Uhat[:,i] = uhat[i]  # fill in components
+
+    Uhat = Uhat.reshape(nComponents, M, N)
+
+    return Uhat
 
 
 def inversion_checks(phs, Px, Py, Pz, nComponents):
@@ -297,19 +313,17 @@ def create_2comp_pointing_matrices(Px, Pz):
          M and N are the map height and width.
 
     OUTPUTS
-        matrices is a MxN-length list of matrices
+        Pmatrices is a MxN-length list of matrices
     '''
     # Setup
     nObs, M, N = Px.shape
     nPixels = M*N
-    Pmatrices = np.zeros((nObs, 2, nPixels))
 
-    # Create matrices
-    k = 0  # start counter
-    for i in range(M):
-        for j in range(N):
-            Pmatrices[:,:,k] = np.column_stack([Px[:,i,j], Pz[:,i,j]])
-            k += 1  # update counter
+    # Form and shape matrix
+    Px = Px.reshape(nObs, nPixels)
+    Pz = Pz.reshape(nObs, nPixels)
+    Pmatrices = np.concatenate([Px, Pz]).reshape(nObs,2,nPixels, order='F')  # pointing vectors into matrix
+    Pmatrices = [Pmatrices[:,:,i] for i in range(nPixels)]  # reformat at list
 
     return Pmatrices
 
@@ -325,28 +339,27 @@ def create_3comp_pointing_matrices(Px, Py, Pz):
         | pSx pSy pSz |
 
     INPUTS
-        Px, Pz are SxMxN arrays, where P is the number of observations and
-         M and N are the map height and width.
+        Px, Py, and Pz are SxMxN arrays, where P is the number of observations
+         and M and N are the map height and width.
 
     OUTPUTS
-        matrices is a MxN-length list of matrices
+        Pmatrices is a MxN-length list of matrices
     '''
     # Setup
     nObs, M, N = Px.shape
     nPixels = M*N
-    Pmatrices = np.zeros((nObs, 3, nPixels))
 
-    # Create matrices
-    k = 0  # start counter
-    for i in range(M):
-        for j in range(N):
-            Pmatrices[:,:,k] = np.column_stack([Px[:,i,j], Py[:,i,j], Pz[:,i,j]])
-            k += 1  # update counter
+    # Form and shape matrix
+    Px = Px.reshape(nObs, nPixels)
+    Py = Py.reshape(nObs, nPixels)
+    Pz = Pz.reshape(nObs, nPixels)
+    Pmatrices = np.concatenate([Px, Py, Pz]).reshape(nObs,3,nPixels, order='F')  # pointing vectors into matrix
+    Pmatrices = [Pmatrices[:,:,i] for i in range(nPixels)]  # reformat at list
 
     return Pmatrices
 
 
-def solve_los_for_components(Pmatrices, los):
+def solve_los_for_components(Pmatrices, los, mask=None):
     '''
     Estimate displacement given the pointing vectors in Pmatrices, and the LOS
      displacement vectors in los.
@@ -356,28 +369,41 @@ def solve_los_for_components(Pmatrices, los):
         los is a (nComponents x nPixels) array
     '''
     # Setup
-    assert Pmatrices.shape[2] == los.shape[1], \
+    assert len(Pmatrices) == len(los), \
         'Nb matrices ({:d}) must equal nb LOS ({:d})'.\
-        format(Pmatrices.shape[2], los.shape[1])
-    nPixels = Pmatrices.shape[2]  # how many data points
-    nComponents = Pmatrices.shape[1]  # number of components
+        format(len(Pmatrices), len(los))
+    nPixels = len(Pmatrices)  # number of data points
+    nObs = Pmatrices[0].shape[0]  # how many data points
+    nComponents = Pmatrices[0].shape[1]  # number of components
 
-    # Empty displacements array
-    uhat = np.zeros((nComponents, nPixels))
+    # Zip pointing matrices and LOS values into single list for parallelization
+    LOSobs = list(zip(Pmatrices, los))
 
-    # Solve each matrix
-    for i in range(nPixels):
-        try:
-            # Retrieve pointing vector
-            P = Pmatrices[:,:,i]
+    # Initialize parallelization
+    pool = mp.Pool(mp.cpu_count())
 
-            # Retrieve LOS vector
-            l = los[:,i]
+    # Invert for parameters
+    uhat = pool.map(invert_for_components, [Pl for Pl in LOSobs])
 
-            # Invert for solution
-            uhat[:,i] = np.linalg.inv(np.dot(P.T, P)).dot(P.T).dot(l)
-        except:
-            print(P, 'Warning: Matrix is singular. Filling with zeros.')
-            uhat[:,i] = np.zeros(nComponents)
+    # Close pool
+    pool.close()
 
     return uhat
+
+
+def invert_for_components(Pl):
+    '''
+    Solve for displacement components.
+    '''
+    try:
+        # Invert
+        P = Pl[0]  # matrix of pointing vectors
+        L = Pl[1]  # line of sight values
+        sln = np.linalg.inv(np.dot(P.T, P)).dot(P.T).dot(L)  # solution
+
+    except:
+        # Replace with zeros
+        P = Pl[0]  # matrix of pointing vectors
+        sln = np.zeros((P.shape[1], 1))  # empty solution
+
+    return sln

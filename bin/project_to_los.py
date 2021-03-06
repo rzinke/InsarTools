@@ -427,17 +427,22 @@ class LOSproject:
         '''
         Save the vector components fields to a three-band GeoTiff using GDAL.
         '''
-        if self.verbose == True:
-            print('*'*32)
-            print('Saving to file')
+        # Save to file if a map was computed
+        if type(self.LOS) == np.ndarray:
+            if self.verbose == True:
+                print('*'*32)
+                print('Saving to file')
 
-        # Check outname
-        confirm_outdir(outName)  # confirm output directory exists
-        outName = confirm_outname_ext(outName)  # confirm output extension if GeoTiff
+            # Check outname
+            confirm_outdir(outName)  # confirm output directory exists
+            outName = confirm_outname_ext(outName)  # confirm output extension if GeoTiff
 
-        # Save to GDAL data set
-        save_gdal_dataset(outName, self.LOS, mask=self.mask,
-            proj=self.proj, tnsf=self.tnsf, verbose=self.verbose)
+            # Save to GDAL data set
+            save_gdal_dataset(outName, self.LOS, mask=self.mask,
+                proj=self.proj, tnsf=self.tnsf, verbose=self.verbose)
+
+        else:
+            print('LOS value: {:.8f}'.format(self.LOS))
 
 
     ## Plotting

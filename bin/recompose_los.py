@@ -5,7 +5,6 @@ Convert two or more lines of sight into movement components.
 
 FUTURE IMPROVEMENTS
     * Weighting for inversion scheme
-    * Parallelize
 
 TESTING STATUS
 Tested.
@@ -21,7 +20,7 @@ from Checks import check_dataset_sizes
 from Viewing import plot_raster, raster_multiplot
 from GeoFormatting import DS_to_extent
 from Masking import create_mask
-from RadarGeometries import aria_geom_to_vector, isce_geom_to_vector, invert_from_los
+from RadarGeometries import aria_geom_to_vector, isce_geom_to_vector, invert_from_los, parse_isce_los
 
 
 ### PARSER ---
@@ -209,13 +208,7 @@ class LOSrecomposition:
 
         # Resample data sets to same size
         imgDatasets = match_rasters(imgDatasets, cropping='intersection', verbose=self.verbose)
-        incDatasets = match_rasters(incDatasets, cropping='intersection', verbose=self.verbose)
-        azDatasets = match_rasters(azDatasets, cropping='intersection', verbose=self.verbose)
-
-        # Ensure data sets are the same size
-        Mimg, Nimg = check_dataset_sizes(imgDatasets)
-        Minc, Ninc = check_dataset_sizes(incDatasets)
-        Maz, Naz = check_dataset_sizes(azDatasets)
+        geomDatasets = match_rasters(geomDatasets, cropping='intersection', verbose=self.verbose)
 
         # Ensure data sets are the same size
         Mimg, Nimg = check_dataset_sizes(imgDatasets)
@@ -225,6 +218,11 @@ class LOSrecomposition:
             'Image data set dimensions ({:d} x {:d}) must equal geomtry data set ({:d} x {:d})'.\
             format(Mimg, Nimg, Mgeom, Ngeom)
 
+        # Store spatial parameters
+        self.extent = DS_to_extent(imgDatasets[self.dsNames[0]])
+        self.tnsf = imgDatasets[self.dsNames[0]].GetGeoTransform()
+        self.proj = imgDatasets[self.dsNames[0]].GetProjection()
+
         # Retrieve phase information from IFG data
         phsMaps = []
         for dsName in imgDatasets.keys():
@@ -232,11 +230,10 @@ class LOSrecomposition:
             phs = imgDatasets[dsName].GetRasterBand(2).ReadAsArray()
 
             # Replace nan values
-            print(phs.shape)
-            phs[phs == np.nan] = 0
+            phs[np.isnan(phs) == 1] = 0
 
             # Append to list
-            self.phsMaps.append(phs)
+            phsMaps.append(phs)
 
         # Parse geometry data
         incMaps = []
@@ -244,13 +241,19 @@ class LOSrecomposition:
         for dsName in geomDatasets.keys():
             # Retrieve image arrays
             incMap, azMap = parse_isce_los(geomDatasets[dsName])
+
+            # Replace nan values
+            incMap[np.isnan(incMap) == 1] = 0
+            azMap[np.isnan(azMap) == 1] = 0
+
+            # Append to list
             incMaps.append(incMap)
             azMaps.append(azMap)
 
         # Convert to numpy arrays
-
-        print('ISCE formatting not finished yet! Figure out how to deal with nans')
-        exit()
+        self.phs = np.array(phsMaps)
+        self.inc = np.array(incMaps)
+        self.az = np.array(azMaps)
 
 
     ## Masking
@@ -418,5 +421,4 @@ if __name__ == '__main__':
     if inps.plot == True: recomp.plot_outputs()
 
 
-    print('___ In development ___')
     plt.show()

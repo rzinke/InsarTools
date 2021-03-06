@@ -11,6 +11,7 @@ Tested.
 
 ### IMPORT MODULES ---
 import argparse
+from glob import glob
 
 
 ### PARSER ---
@@ -26,8 +27,8 @@ def createParser():
 
     InputArgs = parser.add_argument_group('INPUTS')
 
-    InputArgs.add_argument(dest='fldr', type=str,
-        help='Folder in which subfolders or filenames are stored.')
+    InputArgs.add_argument(dest='schStr', type=str,
+        help='Search string leading to the subfolders or filenames are stored. E.g., \"T41/unwrappedPhase\"')
 
     InputArgs.add_argument('-fmt','--format', dest='imgFiles', type=str, default=None,
         help='File format. Provide a file type (\'aria netcdf\', \'aria unwrappedPhase\', [None])')
@@ -46,10 +47,20 @@ def cmdParser(iargs = None):
 
 
 
+### LOADING ---
+def search_files(schStr, verbose=False):
+    '''
+    Determine the filenames or subfolders within the specified folder.
+    '''
+    glob()
+
+
+
+
 ### NAMING IDENTIFICATION ---
 schemes = ['aria netcdf', 'aria unwrappedPhase']
 
-def determine_naming_scheme(fnames, fmt=None):
+def determine_naming_scheme(fnames, fmt=None, verbose=False):
     '''
     Determine the scheme for naming the files in the folder.
     '''
@@ -70,9 +81,13 @@ if __name__ == '__main__':
     # Gather arguments
     inps = cmdParser()
 
+
+    ## Retrieve file names
+    fnames = search_files(inps.schStr, verbose=inps.verbose)
+
     
     ## Determine naming scheme
-    determine_naming_scheme()
+    determine_naming_scheme(fnames, verbose=inps.verbose)
 
 
     print('You\'re good.')
