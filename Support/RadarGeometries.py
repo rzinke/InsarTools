@@ -15,6 +15,7 @@ from IOsupport import load_gdal_dataset
 import multiprocessing as mp
 
 
+
 ### ARIA GEOMETRIES ---
 class aria_sensitivity_factors:
     def __init__(self, inc, az, verbose=False):
@@ -268,7 +269,7 @@ def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, verbose=False):
     Uhat = np.zeros((nComponents, M*N))  # empty array
 
     for i in range(M*N):
-        Uhat[:,i] = uhat[i]  # fill in components
+        Uhat[:,i] = uhat[i].flatten()  # fill in components
 
     Uhat = Uhat.reshape(nComponents, M, N)
 
