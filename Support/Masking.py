@@ -126,6 +126,17 @@ def create_mask(img, maskArgs, verbose=False):
                 argType = 'map dataset'
 
 
+            elif type(maskArg) == str and maskArg.lower() in ['nan']:
+                '''
+                Mask out numpy NaN values.
+                '''
+                # Mask NaN values
+                mask[np.isnan(img) == 1] = 0
+
+                # Record inferred argument type
+                argType = 'numpy nan'
+
+
             elif maskArg in ['bg', 'background']:
                 '''
                 Detect and mask background value.
