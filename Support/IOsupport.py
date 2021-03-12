@@ -87,6 +87,27 @@ def parse_extension(fname, verbose=False):
     return ext
 
 
+def confirm_overwrite(fname):
+    '''
+    Check if file already exists and return True to confirm overwrite.
+    '''
+    # Check if file already exists
+    if os.path.exists(fname):
+        # Check file existence
+        response = input('File already exists. Overwrite? (y/n) ')
+
+        # Record user response
+        if response.lower() in ['y', 'yes']:
+            write_file = True  # overwrite
+        else:
+            write_file = False  # don't overwrite
+    else:
+        # File does not already exist
+        write_file = True  # write new file
+
+    return write_file
+
+
 
 ### LOADING GDAL DATASETS ---
 def load_gdal_datasets(dsPaths, dsNames=None, verbose=False):
@@ -289,7 +310,7 @@ def load_mintpy_geometry(geomName, verbose=False):
 ### POLYLINE LOADING ---
 def load_polyline(polylineName, verbose=False):
     '''
-    Load a polyline from a text file in WKT geom or x, y format.
+    Load a polyline from a text file in x, y format.
     '''
     if verbose == True: print('Loading polyline file...')
 
@@ -297,59 +318,16 @@ def load_polyline(polylineName, verbose=False):
     check_exists(polylineName)
 
     # Load file contents
-    with open(polylineName, 'r') as polylineFile:
-        lines = polylineFile.readlines()
+    data = np.loadtxt(polylineName)
 
-    # Determine if first line is header
-    firstLine = lines[0]  # first line in file
-    elems = firstLine.split() # first line elements
-    firstElem = elems[0].strip(',')  # first element in file
-    try:
-        # Check whether first line is valid data
-        float(firstElem)  # try converting to float
-    except:
-        # Leave out first line
-        lines = lines[1:]
+    # Parse contents
+    x = data[:,0]
+    y = data[:,1]
 
-    # Check whether type is WKT or simple points
-    firstLine = lines[0]  # data lines
-    elems = firstLine.split()  # data elements in first line
-    firstElem = elems[0].strip(',')  # check first data element in file
-    if firstElem == 'Point':
-        fmt = 'wkt'
-    else:
-        try:
-            # Check whether first element is convertable to float
-            float(firstElem)
-            fmt = 'points'
-        except:
-            print('Cannot identify input type.')
-            exit()
-
-    # Parse file based on format
-    x = []; y = []  # empty lists
-    if fmt == 'wkt':
-        for line in lines:
-            coordsStart = line.index('(')
-            coordsEnd = line.index(')')
-            coords = line[coordsStart+1:coordsEnd]
-            coords = coords.split()
-            coords = [float(coord) for coord in coords]
-            x.append(coords[0])
-            y.append(coords[1])
-    elif fmt == 'points':
-        for line in lines:
-            coords = line.split()
-            coords = [coord.strip('\n').strip(',') for coord in coords]
-            coords = [float(coord) for coord in coords]
-            y.append(coords[0])
-            x.append(coords[1])
-
-    nVertices = len(x)
+    nVertices = data.shape[0]
 
     # Report if requested
     if verbose == True:
-        print('... loaded with {:s} format'.format(fmt))
         print('{:d} vertices detected'.format(nVertices))
 
     return x, y

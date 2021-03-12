@@ -28,6 +28,10 @@ class parse_transform:
         self.right = self.left + self.dx*N
         self.bottom = self.top + self.dy*M
 
+        # Record map size
+        self.M = M
+        self.N = N
+
         # Report if requested
         if verbose == True:
             print('Spatial extent:')
@@ -149,6 +153,16 @@ def vectorize_gdal_transform(tnsf, verbose=False):
 
 
 ### GDAL FORMATTING---
+def get_raster_size(DS):
+    '''
+    Retrieve raster size from data set.
+    '''
+    M = DS.RasterYSize
+    N = DS.RasterXSize
+
+    return M, N
+
+
 def DS_to_extent(DS, verbose=False):
     '''
     Extract the geographic extent in pyplot imshow format from a GDAL data set.
@@ -179,16 +193,6 @@ def DS_to_bounds(DS, verbose=False):
     bounds = transform_to_bounds(tnsf, M, N, verbose=False)
 
     return bounds
-
-
-def get_raster_size(DS):
-    '''
-    Retrieve raster size from data set.
-    '''
-    M = DS.RasterYSize
-    N = DS.RasterXSize
-
-    return M, N
 
 
 def determine_common_bounds(datasets, cropping='union', resolution='fine', verbose=False):
@@ -259,6 +263,27 @@ def determine_common_bounds(datasets, cropping='union', resolution='fine', verbo
     return bounds, xRes, yRes
 
 
+def grid_from_DS(DS, verbose=False):
+    '''
+    Create an X, Y grid given a GDAL data set.
+    '''
+    if verbose == True: print('Creating grid from data set')
+
+    # Get map size
+    M, N = get_raster_size(DS)
+
+    # Retrieve geographic transform
+    tnsf = DS.GetGeoTransform()
+
+    # Parse geographic information
+    spatInfo = parse_transform(tnsf, M, N)
+
+    # Create grid
+    X, Y = grid_from_spatial_info(spatInfo)
+
+    return X, Y
+
+
 
 ### MINTPY FORMATTING ---
 def get_mintpy_reference_point(DSname, verbose=False):
@@ -321,3 +346,41 @@ def parse_mintpy_geo_attributes(attrs, verbose=False):
         print('MintPy geo transform: {:.8f} {:.6f} {:.4f} {:.8f} {:.4f} {:.6f}'.format(*tnsf))
 
     return tnsf
+
+
+
+### GRIDDING ---
+def grid_from_spatial_info(spatInfo, verbose=False):
+    '''
+    Create an X, Y grid from a spatInfo object.
+    '''
+    if verbose == True: print('Creating spatial grid')
+
+    # Create grid from spatial information object
+    x = np.linspace(spatInfo.left, spatInfo.right, spatInfo.N)
+    y = np.linspace(spatInfo.top, spatInfo.bottom, spatInfo.M)
+
+    X, Y = np.meshgrid(x, y)
+
+    return X, Y
+
+
+def grid_from_transform(tnsf, M, N, verbose=False):
+    '''
+    Create and X, Y grid from a geographic transform and map size.
+    '''
+    if verbose == True: print('Creating spatial grid')
+
+    # Formulate spatial information
+    spatInfo = parse_transform(tnsf, M, N)
+
+    # Create X, Y grid from spatial information object
+    X, Y = grid_from_spatial_info(spatInfo)
+
+    return X, Y
+
+
+def rotate_grid(X, Y, angle):
+    '''
+    '''
+    pass

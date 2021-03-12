@@ -39,64 +39,6 @@ def detect_background(img, verbose=False):
 
 
 ### GENERATE MASK ---
-def create_common_mask(datasets, maskArgs, verbose=False):
-    '''
-    Generate a common (conservative) mask for all data sets.
-    Data sets must already be sampled at the same dimensions.
-    '''
-    if verbose == True: print('Creating common mask')
-
-    # Check raster sizes are consistent
-    M, N = check_dataset_sizes(datasets)
-
-    # Create masks
-    masks = mask_datasets(datasets, maskArgs, verbose=verbose)
-
-    # Initial common mask
-    commonMask = np.ones((M, N))  # initially pass all values
-
-    # Accumulate mask values
-    for mskName in masks.keys():
-        # Retrieve individual mask
-        mask = masks[mskName]
-
-        # Add to common mask
-        commonMask[mask==0] = 0
-
-    return commonMask
-
-
-def mask_datasets(datasets, maskArgs, verbose=False):
-    '''
-    Generate masks for multiple GDAL data sets.
-    '''
-    if verbose == True: print('Generating masks for multiple data sets')
-
-    # Setup
-    masks = {}  # empty dictionary
-
-    # Loop through data sets
-    for dsName in datasets.keys():
-        masks[dsName] = mask_dataset(datasets[dsName], maskArgs, verbose=verbose)
-
-    return masks
-
-
-def mask_dataset(DS, maskArgs, verbose=False):
-    '''
-    Mask a GDAL data set.
-    '''
-    if verbose == True: print('Masking data set')
-
-    # Retrieve image
-    img = DS.GetRasterBand(1).ReadAsArray()
-
-    # Create mask
-    mask = create_mask(img, maskArgs, verbose=verbose)
-
-    return mask
-
-
 def create_mask(img, maskArgs, verbose=False):
     '''
     Provide an image array, and one or more files or values to mask.
@@ -186,6 +128,64 @@ def create_mask(img, maskArgs, verbose=False):
 
             # Report if requested
             if verbose == True: print('Mask value {} interpreted as {:s}'.format(maskArg, argType))
+
+    return mask
+
+
+def create_common_mask(datasets, maskArgs, verbose=False):
+    '''
+    Generate a common (conservative) mask for all data sets.
+    Data sets must already be sampled at the same dimensions.
+    '''
+    if verbose == True: print('Creating common mask')
+
+    # Check raster sizes are consistent
+    M, N = check_dataset_sizes(datasets)
+
+    # Create masks
+    masks = mask_datasets(datasets, maskArgs, verbose=verbose)
+
+    # Initial common mask
+    commonMask = np.ones((M, N))  # initially pass all values
+
+    # Accumulate mask values
+    for mskName in masks.keys():
+        # Retrieve individual mask
+        mask = masks[mskName]
+
+        # Add to common mask
+        commonMask[mask==0] = 0
+
+    return commonMask
+
+
+def mask_datasets(datasets, maskArgs, verbose=False):
+    '''
+    Generate masks for multiple GDAL data sets.
+    '''
+    if verbose == True: print('Generating masks for multiple data sets')
+
+    # Setup
+    masks = {}  # empty dictionary
+
+    # Loop through data sets
+    for dsName in datasets.keys():
+        masks[dsName] = mask_dataset(datasets[dsName], maskArgs, verbose=verbose)
+
+    return masks
+
+
+def mask_dataset(DS, maskArgs, verbose=False):
+    '''
+    Mask a GDAL data set.
+    '''
+    if verbose == True: print('Masking data set')
+
+    # Retrieve image
+    img = DS.GetRasterBand(1).ReadAsArray()
+
+    # Create mask
+    mask = create_mask(img, maskArgs, verbose=verbose)
 
     return mask
 
