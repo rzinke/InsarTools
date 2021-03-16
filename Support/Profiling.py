@@ -195,67 +195,133 @@ def find_profile_geometries(lineX, lineY, profWidth, profLen, verbose=False):
 
     # Create profGeom objects to describe the profile coordinates
     nAnchors = len(startAnchors)
-    profGeoms = [profGeom(startAnchors[i], endAnchors[i], profLen) for i in range(nAnchors)]
+    profGeoms = []
+
+    for i in range(nAnchors):
+        profGeom = profile_geometry(verbose=True)
+        profGeom.from_anchors(startAnchors[i], endAnchors[i], profLen)
+        profGeoms.append(profGeom)
 
     return profGeoms
 
 
-class profGeom:
-    def __init__(self, startAnchor, endAnchor, profLen):
+class profile_geometry:
+    def __init__(self, verbose=False):
         '''
-        Store the coordinates and properties composing a profile.
-        Provide the starting and ending anchor points.
-        Automatically calculate the orientation vectors.
+        Compute and store the coordinates and properties composing a profile.
+        '''
+        self.verbose = verbose
+
+
+    def from_endpoints(self, profStart, profEnd, profWidth):
+        '''
+        Provide the starting and ending points of the profile.
+        Automatically calculate the profile geometry.
+        Values given in map units.
+        '''
+        self.profStart = profStart
+        self.profEnd = profEnd
+        self.profWidth = profWidth
+
+        # Determine vectors
+        self.__determine_vectors_from_start_end__()
+
+        # Determine profile corners
+        self.__determine_corners__()
+
+        # Check components
+        self.__check_components__()
+
+
+    def from_anchors(self, startAnchor, endAnchor, profLen):
+        '''
+        Provide the starting and ending anchor points along the polyline.
+        Automatically calculate the profile geometry.
+        Values given in map units.
         '''
         self.startAnchor = startAnchor
         self.endAnchor = endAnchor
+        self.profLen = profLen
 
         # Determine mid points
-        self.__find_midpoint__()
+        self.__find_anchor_midpoint__()
 
         # Determine vectors
-        self.__determine_vectors__()
+        self.__determine_vectors_from_anchors__()
 
         # Determine profile start and end
-        self.__determine_start_end__(profLen)
+        self.__determine_start_end__()
 
         # Determine profile corners
-        self.__determine_corners__(profLen)
+        self.__determine_corners__()
+
+        # Check components
+        self.__check_components__()
 
 
-    def __find_midpoint__(self):
+    def __find_anchor_midpoint__(self):
         '''
         Find the midpoint of the profile.
         '''
         self.midAnchor = (self.endAnchor - self.startAnchor)/2 + self.startAnchor
 
 
-    def __determine_vectors__(self):
+    def __determine_vectors_from_start_end__(self):
         '''
-        Determine orientation vector and orthogonal orientation.
+        Vectors describing the width and length directions based on start and
+         end points.
         '''
-        self.orient, _ = determine_pointing_vector(*self.startAnchor, *self.endAnchor)
-        self.orthog = np.array([-self.orient[1], self.orient[0]])
+        self.lenVector, self.profLen = determine_pointing_vector(*self.profStart, *self.profEnd)
+        self.widthVector = np.array([-self.lenVector[1], self.lenVector[0]])
 
 
-    def __determine_start_end__(self, profLen):
+    def __determine_vectors_from_anchors__(self):
+        '''
+        Vectors describing the width and length directions based on anchor points.
+        '''
+        self.widthVector, self.profWidth = determine_pointing_vector(*self.startAnchor, *self.endAnchor)
+        self.lenVector = np.array([-self.widthVector[1], self.widthVector[0]])
+
+
+    def __determine_start_end__(self):
         '''
         Determine the start and end points of a profile.
         '''
-        self.profStart = profLen*self.orthog+self.midAnchor
-        self.profEnd = -profLen*self.orthog+self.midAnchor
+        halfLen = self.profLen/2
+        self.profStart =  halfLen*self.lenVector+self.midAnchor
+        self.profEnd   = -halfLen*self.lenVector+self.midAnchor
 
 
-    def __determine_corners__(self, profLen):
+    def __determine_corners__(self):
         '''
         Determine profile corners.
         '''
-        corner1 =  profLen*self.orthog+self.startAnchor
-        corner2 =  profLen*self.orthog+self.endAnchor
-        corner3 = -profLen*self.orthog+self.endAnchor
-        corner4 = -profLen*self.orthog+self.startAnchor
+        halfWidth = self.profWidth/2
+        corner1 =  halfWidth*self.widthVector+self.profStart
+        corner2 =  halfWidth*self.widthVector+self.profEnd
+        corner3 = -halfWidth*self.widthVector+self.profEnd
+        corner4 = -halfWidth*self.widthVector+self.profStart
 
         self.corners = np.vstack([corner1, corner2, corner3, corner4, corner1])
+
+
+    def __check_components__(self):
+        '''
+        Check that the object has the necessary components.
+        '''
+        assert hasattr(self, 'profStart'), 'Starting point required'
+        assert hasattr(self, 'profEnd'), 'End point required'
+        assert hasattr(self, 'profWidth'), 'Width required'
+        assert hasattr(self, 'profLen'), 'Length required'
+        assert hasattr(self, 'corners'), 'Corners must be computed'
+
+        # Report if requested
+        if self.verbose == True:
+            print('Profile:')
+            print('\tstart: {:f} {:f}'.format(*self.profStart))
+            print('\tend: {:f} {:f}'.format(*self.profEnd))
+            print('\twidth: {:f}'.format(self.profWidth))
+            print('\tlength: {:f}'.format(self.profLen))
 
 
 
@@ -263,7 +329,10 @@ class profGeom:
 def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, width, mask=None, verbose=False):
     '''
     Extract polyline-perpendicular profiles from one or more images.
-    Width given in pixels
+    INPUTS
+        pxStart and pxEnd are the start and end points of the profile, given in
+         pixels
+        width is the width of the profile, given in pixels
     '''
     if verbose == True: print('Extracting profile')
 

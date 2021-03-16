@@ -14,7 +14,7 @@ Tested.
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from IOsupport import load_gdal_dataset
+from IOsupport import load_gdal_dataset, confirm_outdir, confirm_outname_ext
 from GeoFormatting import DS_to_extent
 from Masking import create_mask
 from Viewing import plot_raster, plot_histogram, image_clip_values, image_stats
@@ -60,6 +60,8 @@ def createParser():
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
+    OutputArgs.add_argument('-o','--outname', dest='outName', type=str, default=None,
+        help='Output name to save image.')
     return parser
 
 def cmdParser(iargs = None):
@@ -92,6 +94,25 @@ def load_image(imgName, bandNb=1, verbose=False):
 
 
 
+### SAVING ---
+def save_image(outName, fig, verbose=False):
+    '''
+    Save the image figure to an image file (PNG).
+    '''
+    # Confirm output directory
+    confirm_outdir(outName)
+
+    # Confirm outname extension
+    outName = confirm_outname_ext(outName, ['png', 'PNG'])
+
+    # Save figure
+    fig.savefig(outName)
+
+    # Report if requested
+    if verbose == True: print('Saved to: {:s}'.format(outName))
+
+
+
 ### MAIN ---
 if __name__ == '__main__':
     ## Inputs
@@ -110,7 +131,7 @@ if __name__ == '__main__':
 
 
     ## Plot image
-    plot_raster(img, mask=mask, extent=extent,
+    imgFig, imgAx = plot_raster(img, mask=mask, extent=extent,
         cmap=inps.cmap, cbarOrient=inps.cbarOrient,
         vmin=inps.vmin, vmax=inps.vmax,
         minPct=inps.minPct, maxPct=inps.maxPct,
@@ -130,6 +151,11 @@ if __name__ == '__main__':
     # Report stats if requested
     if inps.verbose == True:
         image_stats(img, mask=mask, verbose=True)
+
+
+    ## Save image to file
+    if inps.outName is not None:
+        save_image(inps.outName, imgFig, verbose=inps.verbose)
 
 
     plt.show()

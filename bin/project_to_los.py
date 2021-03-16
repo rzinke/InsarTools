@@ -39,10 +39,10 @@ def createParser():
     InputArgs.add_argument('-c','--convention', dest='convention', required=True,
         help='Convention (ARIA, ISCE).')
 
-    InputArgs.add_argument('-a','--azimuth', dest='azInpt', type=str, default=None,
-        help='Azimuth (float or filename).')
     InputArgs.add_argument('-i','--incidence', dest='incInpt', type=str, default=None,
         help='Incidence (float or filename).')
+    InputArgs.add_argument('-a','--azimuth', dest='azInpt', type=str, default=None,
+        help='Azimuth (float or filename).')
     InputArgs.add_argument('-g','--geometry', dest='geomFile', type=str, default=None,
         help='ISCE geometry file.')
     InputArgs.add_argument('-e','--east', dest='Einpt', type=str, required=True,
@@ -75,17 +75,6 @@ class LOSproject:
         '''
         Class for converting three components of motion to satellite line of 
          sight based on radar geometry.
-
-        Inherits:
-            os
-            numpy
-            IOsupport: load_gdal_dataset, confirm_outdir, confirm_outname_ext, save_gdal_dataset
-            GeoFormatting: DS_to_extent
-            RadarGeometries: aria_to_los, aria_geom_to_vector, isce_to_los, isce_geom_to_vector
-            Masking create_mask
-            Viewing: plot_look_vectors, raster_multiplot
-
-        To initialize, check that inputs types are consistent. Then compute LOS.
         '''
         # Parameters
         self.convention = convention.lower()
@@ -435,7 +424,7 @@ class LOSproject:
 
             # Check outname
             confirm_outdir(outName)  # confirm output directory exists
-            outName = confirm_outname_ext(outName)  # confirm output extension if GeoTiff
+            outName = confirm_outname_ext(outName, ['tif', 'tiff'])  # confirm output extension if GeoTiff
 
             # Save to GDAL data set
             save_gdal_dataset(outName, self.LOS, mask=self.mask,

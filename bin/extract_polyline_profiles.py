@@ -4,20 +4,20 @@ SHORT DESCRIPTION
 Extract profiles from a map that are perpendicular to a given polyline.
 
 FUTURE IMPROVEMENTS
-    * Save to files
 
 TESTING STATUS
-In development.
+Tested.
 '''
 
 ### IMPORT MODULES ---
 import argparse
+import os
 import matplotlib.pyplot as plt
-from IOsupport import load_polyline, load_gdal_dataset
+from IOsupport import load_polyline, load_gdal_dataset, confirm_outdir, confirm_outname_ext, append_fname, save_profile_data
 from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
 from Profiling import find_profile_geometries, extract_profile
-from Viewing import plot_raster
+from Viewing import plot_raster, plot_profile
 
 
 ### PARSER ---
@@ -58,7 +58,7 @@ def createParser():
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
-        help='Output name.')
+        help='Output name prefix.')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
     OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true',
@@ -122,7 +122,7 @@ class polylineProfiles:
     def __build_geometries__(self):
         '''
         Find profile geometries.
-        Return a list of profGeom objects, each containing the geometry
+        Return a list of profile_geometry objects, each containing the geometry
          information of a single profile.
         '''
         # Build geometries
@@ -183,16 +183,42 @@ class polylineProfiles:
             axMap.plot(profGeom.midAnchor[0], profGeom.midAnchor[1], 'k+')
 
             # Plot profile corners
-            axMap.fill(profGeom.corners[:,0], profGeom.corners[:,1],
-                facecolor=(0.5, 0.5, 0.5), edgecolor='k', alpha=0.5)
+            plot_profile(profGeom, fig=mapFig, ax=axMap)
 
         # Plot profiles
         profFig, profAx = plt.subplots(figsize=(9,5))
 
         for i in range(self.nProfiles):
-            profAx.plot(self.profDists[i], self.profPts[i], label='Profile {:d}'.format(i+1))
+            profAx.plot(self.profDists[i], self.profPts[i],
+                marker='.', linewidth=0, label='Profile {:d}'.format(i+1))
 
         profAx.legend()
+
+
+    ## Saving
+    def save(self, outName):
+        '''
+        Save each profile to a text file.
+        '''
+        if self.verbose == True: print('Saving to files using prefix {:s}'.format(outName))
+
+        # Confirm output directory exists
+        confirm_outdir(outName)
+
+        # Confirm extention
+        outName = confirm_outname_ext(outName, ['txt'], self.verbose)
+
+        # Loop through profiles
+        for i in range(self.nProfiles):
+            # Append profile name
+            fname = append_fname(outName, '_{:d}'.format(i+1))
+
+            # Report if requested
+            if self.verbose == True: print('... {:s}'.format(os.path.basename(fname)))
+
+            # Save to file
+            save_profile_data(fname, self.profGeoms[i].profStart, self.profGeoms[i].profEnd,
+                self.profDists[i], self.profPts[i])
 
 
 
@@ -214,6 +240,9 @@ if __name__ == '__main__':
         profs.plot(cmap=inps.cmap, cbarOrient=inps.cbarOrient,
             minPct=inps.minPct, maxPct=inps.maxPct)
 
+    # Save to file
+    if inps.outName is not None:
+        profs.save(inps.outName)
 
-    print('__In development__')
+
     plt.show()

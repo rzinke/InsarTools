@@ -64,18 +64,6 @@ class look_extraction:
         '''
         Extract look vectors from geometry, azimuth, and/or incidence files of
          ISCE or ARIA data.
-
-        Inherits
-            os
-            IOsupport: confirm_outdir, confirm_outname_ext,
-             load_gdal_dataset save_gdal_dataset
-            Checks: check_dataset_sizes
-            GeoFormatting: DS_to_extent
-            Masking: create_mask
-            RadarGeometries: aria_geom_to_vector, isce_geom_to_vector
-            Viewing: raster_multiplot
-
-        To initialize, check that inputs are consistent.
         '''
         # Parameters
         self.convention = convention.lower()

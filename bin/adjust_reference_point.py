@@ -76,12 +76,6 @@ class adjust_ref_pt:
          value at that location.
 
         Initialize by loading the original data set and creating a mask.
-
-        INHERITANCES
-            IOsupport: load_gdal_dataset
-            Masking: mask_dataset
-            GeoFormatting: DS_to_extent, check_loc_in_dataset, lola_to_xy
-            Viewing: image_percentiles
         '''
         # Parameters
         self.verbose = verbose

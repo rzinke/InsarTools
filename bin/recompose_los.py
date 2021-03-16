@@ -41,10 +41,10 @@ def createParser():
 
     InputArgs.add_argument('-f','--ifg', dest='imgFiles', type=str, nargs='+', required=True,
         help='LOS file names.')
-    InputArgs.add_argument('-a','--azimuth', dest='azFiles', type=str, nargs='+', default=None,
-        help='ARIA azimuth files.')
     InputArgs.add_argument('-i','--incidence', dest='incFiles', type=str, nargs='+', default=None,
         help='ARIA incidence files.')
+    InputArgs.add_argument('-a','--azimuth', dest='azFiles', type=str, nargs='+', default=None,
+        help='ARIA azimuth files.')
     InputArgs.add_argument('-g','--geometry', dest='geomFiles', type=str, nargs='+', default=None,
         help='ISCE geometry files.')
     InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
@@ -75,9 +75,6 @@ class LOSrecomposition:
         '''
         Use the satellite geometry files and LOS values to "recompose" the
          EW, (NS,) and vertical components of motion.
-
-        Inherits:
-
         '''
         # Parameters
         self.convention = convention.lower()
@@ -337,7 +334,7 @@ class LOSrecomposition:
 
         # Check outname
         confirm_outdir(outName)  # confirm output directory exists
-        outName = confirm_outname_ext(outName)  # confirm output extension if GeoTiff
+        outName = confirm_outname_ext(outName, ['tif', 'tiff'])  # confirm output extension if GeoTiff
 
         # Save to GDAL data set
         save_gdal_dataset(outName, self.Uhat, mask=self.mask,

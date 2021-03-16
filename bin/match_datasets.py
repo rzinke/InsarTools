@@ -68,8 +68,8 @@ def format_outnames(inNames, prefix, verbose=False):
 
         # Add output to front
         basename = os.path.basename(outName)
-        dirname = os.path.dirname(outName)
         basename = '{:s}_{:s}'.format(prefix, basename)
+        dirname = os.getcwd()
         outName = os.path.join(dirname, basename)
 
         # Add "resampled" appendix to the back

@@ -42,7 +42,7 @@ def createParser():
 
     QueryArgs = parser.add_argument_group('QUERY ARGUMENTS')
     QueryArgs.add_argument('-q','--queryfile', dest='queryFile', type=str, default=None,
-        help='Query points with points in geographic coordinates, one query point per line.')
+        help='Query points with points in geographic coordinates, one query point per line (e.g., -118.325,35.456).')
     QueryArgs.add_argument('-i','--interactive', dest='interactive', action='store_true',
         help='Interactive mode.')
     QueryArgs.add_argument('--display-map', dest='displayMap', type=str, default=None,
@@ -66,7 +66,7 @@ def cmdParser(iargs = None):
 
 
 
-### LOAD PLOTTING MAP ---
+### TS ANALYSIS CLASS ---
 class MintPyTSanalysis:
     def __init__(self, tsName, outName, maskArgs=None, fitType=None, verbose=False):
         '''
@@ -76,8 +76,6 @@ class MintPyTSanalysis:
             dates is a E-length list of dates
             disps is a (E x M x N) array of maps, where E is the number of
              displacement epochs
-
-        INHERITANCES
         '''
         # Parameters
         self.k = 0  # start query counter
@@ -167,7 +165,7 @@ class MintPyTSanalysis:
 
         # Check that value is not within mask
         if self.mask[py, px] == 0:
-            print('Point ({:.6f}, {:.6f}) is masked. Select another.'.format(lat, lon))
+            print('Point ({:.6f}, {:.6f}) is masked. Select another.'.format(lon, lat))
             ts = None
 
         else:
@@ -198,7 +196,7 @@ class MintPyTSanalysis:
         Load lat, lon points from a text file to be used as query points.
         '''
         # Load lats, lons from file
-        lats, lons = self.__load_query_file__(queryFile)
+        lons, lats = self.__load_query_file__(queryFile)
         nPts = len(lats)
 
         # Loop through each coordinate to retrieve the timeseries there
@@ -220,20 +218,20 @@ class MintPyTSanalysis:
             lines = [line for line in lines if line[0]!='#']  # ignore header
 
         # Convert to lats, lons
-        lats = []; lons = []
+        lons = []; lats = []
 
         for line in lines:
             # Split text string
-            coords = line.split()
+            coords = line.split(',')
 
             # Format lat/lon
-            coords = [float(coord.strip(',').strip('\n')) for coord in coords]
+            coords = [float(coord.strip(',').strip(' ').strip('\n')) for coord in coords]
 
             # Append lists
-            lats.append(coords[0])
-            lons.append(coords[1])
+            lons.append(coords[0])
+            lats.append(coords[1])
 
-        return lats, lons
+        return lons, lats
 
 
     ## Interactive plotting
@@ -416,7 +414,7 @@ class MintPyTSanalysis:
             px = queriedPoint['px']; py = queriedPoint['py']
             lon = queriedPoint['lon']; lat = queriedPoint['lat']
 
-            if self.verbose == True: print('Saving point ({:.6f}, {:.6f})'.format(lat, lon))
+            if self.verbose == True: print('Saving point ({:.6f}, {:.6f})'.format(lon, lat))
 
             # Format file name
             saveName = '{:s}_{:d}.txt'.format(self.outName, ptNb)

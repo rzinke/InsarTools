@@ -13,7 +13,7 @@ Tested.
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-from IOsupport import confirm_outname_ext, load_gdal_datasets, pick_dataset, save_gdal_dataset
+from IOsupport import confirm_outdir, confirm_outname_ext, load_gdal_datasets, pick_dataset, save_gdal_dataset
 from RasterResampling import match_rasters
 from Masking import mask_datasets, find_mask_overlap
 from GeoFormatting import DS_to_extent
@@ -259,12 +259,12 @@ def plot_inputs(datasets, masks):
 
         # Plot primary image
         plot_raster(primaryImg, mask=primaryMask, extent=extent,
-            cmap='jet', cbarOrient=cbarOrient, pctMin=1, pctMax=99,
+            cmap='jet', cbarOrient=cbarOrient, minPct=1, maxPct=99,
             fig=fig, ax=axPrim)
 
         # Plot comparison image
         plot_raster(compareImg, mask=compareMask, extent=extent,
-            cmap='jet', cbarOrient=cbarOrient, pctMin=1, pctMax=99,
+            cmap='jet', cbarOrient=cbarOrient, minPct=1, maxPct=99,
             fig=fig, ax=axComp)
 
         # Compute difference between figures
@@ -294,7 +294,7 @@ def plot_outputs(stitchedImg, stitchedMask, extent):
 
     # Plot stitched image
     plot_raster(stitchedImg, mask=stitchedMask, extent=extent,
-        cmap='jet', cbarOrient=cbarOrient, pctMin=1, pctMax=99,
+        cmap='jet', cbarOrient=cbarOrient, minPct=1, maxPct=99,
         fig=fig, ax=axImg)
 
     # Plot mask
@@ -347,8 +347,9 @@ if __name__ == '__main__':
 
     ## Save dataset to file
     # Save as GDAL dataset
-    outName = confirm_outname_ext(inps.outName)
-    save_gdal_dataset(outName, stitchedImg, pick_dataset(datasets), mask=stitchedMask, verbose=inps.verbose)
+    confirm_outdir(inps.outName)
+    outName = confirm_outname_ext(inps.outName, ['tif', 'tiff'])
+    save_gdal_dataset(outName, stitchedImg, mask=stitchedMask, exDS=pick_dataset(datasets), verbose=inps.verbose)
 
 
     plt.show()

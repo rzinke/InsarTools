@@ -9,6 +9,7 @@ Tested.
 '''
 
 ### IMPORT MODULES ---
+import sys
 import matplotlib.pyplot as plt
 from GeoFormatting import get_raster_size, parse_transform, lola_to_xy
 from Viewing import *
@@ -33,8 +34,9 @@ def check_dataset_sizes(datasets):
         dsName = dsNames[i]
         M, N = get_raster_size(datasets[dsName])
 
-        assert (M0, N0) == (M, N), 'Dimensions of data set {:s} ({:d} x {:d}) not consistent with those of reference data \
-            set ({:d} x {:d}).'.format(dsName, M, N, M0, N0)
+        assert (M0, N0) == (M, N), \
+            'Dimensions of data set {:s} ({:d} x {:d}) not consistent with those of reference data set ({:d} x {:d}).'.\
+            format(dsName, M, N, M0, N0)
 
     return M0, N0
 
@@ -52,8 +54,8 @@ def check_loc_in_dataset(DS, mask, lon, lat, verbose=False):
 
     # Check that given coordinates are within the confines of the data set
     if (lon < geos.left) or (lon > geos.right) or (lat < geos.bottom) or (lat > geos.top):
-        print('Error: Lon/Lat ({:f}E, {:f}N) outside of map extent ({:f}-{:f}E, {:f}-{:f}N)'.format(lon, lat, *extent),
-            file=sys.stderr)
+        print('Error: Lon/Lat ({:f}E, {:f}N) outside of map extent ({left:f}-{right:f}E, {bottom:f}-{top:f}N)'.\
+            format(lon, lat, **geos.__dict__), file=sys.stderr)
         exit()
 
     # Convert lon/lat to pixel location

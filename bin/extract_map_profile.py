@@ -12,11 +12,11 @@ Tested.
 ### IMPORT MODULES ---
 import argparse
 import matplotlib.pyplot as plt
-from IOsupport import load_gdal_dataset, confirm_outdir, confirm_overwrite
+from IOsupport import load_gdal_dataset, confirm_outdir, confirm_outname_ext, confirm_overwrite, save_profile_data
 from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
-from Profiling import extract_profile
-from Viewing import plot_raster
+from Profiling import profile_geometry, extract_profile
+from Viewing import plot_raster, plot_profile
 
 
 ### PARSER ---
@@ -41,7 +41,7 @@ def createParser():
     ProfileArgs.add_argument('-q','--queryLoLa', dest='qLoLa', nargs=2, required=True,
         help='Query point in geographic coordinates (e.g., 89.25,34.07 88.72,37.02)')
     ProfileArgs.add_argument('-w','--profile-width', dest='profWidth', type=float, default=None,
-        help='Profile width in pixels.')
+        help='Profile width in map units.')
 
     DisplayArgs = parser.add_argument_group('DISPLAY ARGUMENTS')
     DisplayArgs.add_argument('-c','--cmap', dest='cmap', type=str, default='viridis',
@@ -108,7 +108,7 @@ class mapProfile:
 
 
     ## Profiling
-    def query_profile(self, qLoLa, width):
+    def query_profile(self, qLoLa, profWidth):
         '''
         Query the profile between the points given in qLoLa and with the
          specified width.
@@ -119,13 +119,17 @@ class mapProfile:
         self.__parse_prof_points__(qLoLa)
 
         # Format profile width
-        self.__format_width__(width)
+        self.__format_width__(profWidth)
+
+        # Compute full profile geometry
+        self.profGeom = profile_geometry(self.verbose)
+        self.profGeom.from_endpoints((self.startLon, self.startLat), (self.endLon, self.endLat), self.profWidth)
 
         # Extract profile
         self.profDist, self.profPts = extract_profile(img=self.img,
             pxStart=self.pxStart, pyStart=self.pyStart,
             pxEnd=self.pxEnd, pyEnd=self.pyEnd,
-            width=self.width,
+            width=self.pxWidth,
             mask=self.mask,
             verbose=self.verbose)
 
@@ -136,7 +140,7 @@ class mapProfile:
     def __parse_prof_points__(self, qLoLa):
         '''
         Confirm that the query points are in the correct format, i.e.,
-            qLoLa = ((startLon, startLat) ())
+            qLoLa = ((startLon,startLat) (endLon,endLat))
         and are within the extent of the map.
         '''
         # Format query points
@@ -156,12 +160,10 @@ class mapProfile:
         self.endLon = float(endLon)
         self.endLat = float(endLat)
 
-
         # Report if requested
         if self.verbose == True:
             print('Profile start: {:f}, {:f}'.format(self.startLon, self.startLat))
             print('Profile end: {:f}, {:f}'.format(self.endLon, self.endLat))
-
 
         # Convert to image coordinates
         self.pxStart, self.pyStart = lola_to_xy(self.tnsf, self.startLon, self.startLat,
@@ -177,16 +179,22 @@ class mapProfile:
         assert max([self.pyStart, self.pyEnd]) <= self.M, 'Y-coordinates must be within map bounds'
 
 
-    def __format_width__(self, width):
+    def __format_width__(self, profWidth):
         '''
         Format the profile with based on the pixel size if no set width is
          specified.
         '''
-        # If width is not specified, use pixel size
-        if width is None:
-            self.width = 2  # use x-step
+        # Pixel size
+        pxSize = self.tnsf[1]
+
+        # If width is not specified, use intrinsic pixel size
+        if profWidth is None:
+            self.profWidth = 2*pxSize  # use x-step
         else:
-            self.width = width/self.tnsf[1]  # use specfied width in map units
+            self.profWidth = profWidth
+
+        # Convert to pixels
+        self.pxWidth = int(self.profWidth/pxSize)
 
 
     ## Plotting
@@ -204,7 +212,8 @@ class mapProfile:
             minPct=minPct, maxPct=maxPct,
             fig=mapFig, ax=axMap)
 
-        # Plot profile start
+        # Plot profile
+        plot_profile(self.profGeom, fig=mapFig, ax=axMap)
         axMap.plot(self.startLon, self.startLat, 'ks')
         axMap.plot([self.startLon, self.endLon], [self.startLat, self.endLat], 'k')
 
@@ -225,23 +234,15 @@ class mapProfile:
         confirm_outdir(outName)
 
         # Confirm extention
-        if outName[-4:] != '.txt': outName += '.txt'
-
-        # File formatting
-        metadata = 'start: {:f} {:f}\nend: {:f} {:f}\n'
-        header = '# distance amplitude\n'
-        dataStr = '{:f} {:f}\n'
+        outName = confirm_outname_ext(outName, ['txt'], self.verbose)
 
         # Check overwrite status
         if overwrite == False:
             overwrite = confirm_overwrite(outName)
 
         if overwrite == True:
-            with open(outName, 'w') as profFile:
-                profFile.write(metadata)
-                profFile.write(header)
-                for i in range(self.nPts):
-                    profFile.write(dataStr.format(self.profDist[i], self.profPts[i]))
+            save_profile_data(outName, (self.startLon, self.startLat), (self.endLon, self.endLat),
+                self.profDist, self.profPts, self.verbose)
         else:
             print('Saving aborted.')
 

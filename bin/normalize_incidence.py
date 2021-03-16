@@ -30,7 +30,7 @@ def createParser():
         formatter_class=argparse.RawTextHelpFormatter, epilog=Examples)
 
     InputArgs = parser.add_argument_group('INPUTS')
-    InputArgs.add_argument('-v','--velocity', dest='vName', type=str,
+    InputArgs.add_argument('-f','--fname', dest='mapName', type=str,
         help='Velocity map filename.')
     InputArgs.add_argument('-i','--incidence', dest='iName', type=str,
         help='Incidence map filename.')
@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
     ## Load data sets
     # Load velocity map
-    DSvel = load_gdal_dataset(inps.vName)
+    DSvel = load_gdal_dataset(inps.mapName)
     vel = DSvel.GetRasterBand(1).ReadAsArray()
 
     # Load incidence map
@@ -165,9 +165,11 @@ if __name__ == '__main__':
 
 
     ## Save to file
-    # Checks
-    outName = confirm_outname_ext(inps.outName)  # confirm file extension
-    confirm_outdir(outName)  # confirm output directory exists
+    # Confirm output directory exists
+    confirm_outdir(inps.outName)  # confirm output directory exists
+
+    # Confirm outname extension
+    outName = confirm_outname_ext(inps.outName, ['tif', 'tiff'])  # confirm file extension
 
     # Save data set
     save_gdal_dataset(outName, projVel, mask=mask, exDS=DSvel, verbose=inps.verbose)

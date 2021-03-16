@@ -62,13 +62,6 @@ class create_tide_map:
     def __init__(self, dsName, date, time, outName, verbose=False):
         '''
         Create one or more tide maps using GMT 6's earthtide functionality.
-        This class 
-
-        Inherits
-            os
-            IOsupport: load_gdal_dataset, load_gdal_datasets
-            GeoFormatting: get_raster_size, parse_transform
-            Viewing: raster_multiplot
         '''
         # Parameters
         self.verbose = verbose

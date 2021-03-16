@@ -15,6 +15,32 @@ from osgeo import gdal
 import h5py
 
 
+### MISCELLANEOUS ---
+def check_exists(fname):
+    '''
+    Check that a file exists.
+    '''
+    assert os.path.exists(fname), 'ERROR: {:s} does not exist!!!'.format(fname)
+
+
+def pick_dataset(datasets, verbose=False):
+    '''
+    Return the first entry in a dictionary.
+    '''
+    # Create list of datasets
+    dsNames = list(datasets.keys())
+
+    # Return first dataset
+    dsName = dsNames[0]
+
+    # Report if requested
+    if verbose == True: print('Returning dictionary entry: {:s}'.format(dsName))
+
+    # Return first data set
+    return datasets[dsName]
+
+
+
 ### NAME FORMATTING ---
 def rel_to_abs_paths(fnames):
     '''
@@ -60,10 +86,13 @@ def append_fname(fname, appendix, verbose=False):
     return appName
 
 
-def confirm_outname_ext(outName, ext=['tif', 'tiff'], verbose=False):
+def confirm_outname_ext(outName, ext, verbose=False):
     '''
     Check that the output name uses the specified extension(s). If not, add that extension.
     '''
+    # Strip off excess periods from extensions
+    ext = [ex.strip('.') for ex in ext]
+
     # Check that extension is used
     if outName.split('.')[-1] not in ext:
         outName = '.'.join([outName, ext[0]])
@@ -307,6 +336,33 @@ def load_mintpy_geometry(geomName, verbose=False):
 
 
 
+### PROFILE SAVING ---
+def save_profile_data(outName, profStart, profEnd, profDist, profPts, verbose=False):
+    '''
+    Save profile using standardized format.
+    '''
+    # Setup
+    assert len(profDist) == len(profPts), 'Number of distance and measurements points must be identical'
+    nPts = len(profDist)
+
+    # File formatting
+    metadata = 'start: {:f},{:f}\nend: {:f},{:f}\n'
+    header = '# distance amplitude\n'
+    dataStr = '{:f} {:f}\n'
+
+    # Write contents to file
+    with open(outName, 'w') as profFile:
+        profFile.write(metadata.format(*profStart, *profEnd))
+        profFile.write(header)
+        for i in range(nPts):
+            profFile.write(dataStr.format(profDist[i], profPts[i]))
+
+    # Report if requested
+    if verbose == True:
+        print('Saved profile: {:s}'.format(outName))
+
+
+
 ### POLYLINE LOADING ---
 def load_polyline(polylineName, verbose=False):
     '''
@@ -318,42 +374,28 @@ def load_polyline(polylineName, verbose=False):
     check_exists(polylineName)
 
     # Load file contents
-    data = np.loadtxt(polylineName)
+    with open(polylineName, 'r') as polyFile:
+        lines = polyFile.readlines()  # read all lines
+        lines = lines[1:]  # exclude header
 
-    # Parse contents
-    x = data[:,0]
-    y = data[:,1]
+    x = []; y = []
+    for line in lines:
+        # Split by comma
+        data = line.split(',')
 
-    nVertices = data.shape[0]
+        # Parse contents
+        x.append(float(data[0]))
+        y.append(float(data[1]))
+
+    # Convert to numpy arrays
+    x = np.array(x)
+    y = np.array(y)
+
+    # Number of vertices
+    nVertices = len(x)
 
     # Report if requested
     if verbose == True:
         print('{:d} vertices detected'.format(nVertices))
 
     return x, y
-
-
-
-### MISCELLANEOUS ---
-def check_exists(fname):
-    '''
-    Check that a file exists.
-    '''
-    assert os.path.exists(fname), 'ERROR: {:s} does not exist!!!'.format(fname)
-
-
-def pick_dataset(datasets, verbose=False):
-    '''
-    Return the first entry in a dictionary.
-    '''
-    # Create list of datasets
-    dsNames = list(datasets.keys())
-
-    # Return first dataset
-    dsName = dsNames[0]
-
-    # Report if requested
-    if verbose == True: print('Returning dictionary entry: {:s}'.format(dsName))
-
-    # Return first data set
-    return datasets[dsName]

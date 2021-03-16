@@ -122,7 +122,7 @@ def lola_to_xy(tnsf, lon, lat, verbose=False):
 
     # Report if requested
     if verbose == True:
-        print('Lat/Lon ({:f}, {:f}) -> pixels y/x ({:d}, {:d})'.format(lat, lon, py, px))
+        print('Lon/Lat ({:f}, {:f}) -> pixels x/y ({:d}, {:d})'.format(lon, lat, px, py))
 
     return px, py
 

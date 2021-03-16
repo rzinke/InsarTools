@@ -17,7 +17,38 @@ from osgeo import gdal
 from GeoFormatting import DS_to_extent
 
 
-### CLIPPING ---
+### STATISTICS ---
+def image_stats(img, mask=None, verbose=False):
+    '''
+    Compute the essential statistics of an image.
+    '''
+    # Setup
+    stats = {}  # empty dictionary
+    stats['Yshape'], stats['Xshape'] = img.shape
+
+    # Mask image if mask is provided
+    if mask is not None:
+        img = np.ma.array(img, mask=(mask==0))
+        img = img.compressed().flatten()
+
+    # Compute statistics
+    stats['mean'] = np.mean(img)
+    stats['median'] = np.median(img)
+    stats['min'] = np.min(img)
+    stats['max'] = np.max(img)
+
+    # Report if requested
+    if verbose == True:
+        print('''Image statistics
+    shape: {Yshape:d} x {Xshape:d}
+    mean: {mean:.3e}
+    median: {median:.3e}
+    min: {min:.3e}
+    max: {max:.3e}'''.format(**stats))
+
+    return stats
+
+
 def image_percentiles(img, minPct=1, maxPct=99, verbose=False):
     '''
     Find vmin and vmax for an image based on percentiles.
@@ -59,41 +90,6 @@ def image_clip_values(img, vmin, vmax, minPct, maxPct, verbose=False):
     return vmin, vmax
 
 
-
-### STATISTICS ---
-def image_stats(img, mask=None, verbose=False):
-    '''
-    Compute the essential statistics of an image.
-    '''
-    # Setup
-    stats = {}  # empty dictionary
-    stats['Yshape'], stats['Xshape'] = img.shape
-
-    # Mask image if mask is provided
-    if mask is not None:
-        img = np.ma.array(img, mask=(mask==0))
-        img = img.compressed().flatten()
-
-    # Compute statistics
-    stats['mean'] = np.mean(img)
-    stats['median'] = np.median(img)
-    stats['min'] = np.min(img)
-    stats['max'] = np.max(img)
-
-    # Report if requested
-    if verbose == True:
-        print('''Image statistics
-    shape: {Yshape:d} x {Xshape:d}
-    mean: {mean:.3e}
-    median: {median:.3e}
-    min: {min:.3e}
-    max: {max:.3e}'''.format(**stats))
-
-    return stats
-
-
-
-### HISTOGRAM ---
 def image_histogram(img, mask=None, bins=128):
     '''
     Compute and show the histogram of image values.
@@ -301,3 +297,24 @@ def plot_look_vectors(Px, Py, Pz):
     fig.tight_layout()
 
     return fig, [axInc, axAz]
+
+
+
+### PROFILES ---
+def plot_profile(profGeom, fig=None, ax=None):
+    '''
+    Plot a map profile based on the corners provided by the "profile_geometry"
+     class.
+    '''
+    # Spawn figure if necessary
+    if fig is None and ax is None:
+        fig, ax = plt.subplots()
+
+    # Plot profile
+    ax.fill(profGeom.corners[:,0], profGeom.corners[:,1],
+        facecolor=(0.5, 0.5, 0.5), edgecolor='k', alpha=0.5)
+
+    # Format axis
+    ax.set_aspect(1)
+
+    return fig, ax

@@ -178,8 +178,8 @@ if __name__ == '__main__':
 
     ## Save to file
     # Checks
-    outName = confirm_outname_ext(inps.outName)  # confirm file extension
-    confirm_outdir(outName)  # confirm output directory exists
+    confirm_outdir(inps.outName)  # confirm output directory exists
+    outName = confirm_outname_ext(inps.outName, ['tif', 'tiff'])  # confirm file extension
 
     # Save data set
     save_gdal_dataset(outName, img, mask=mask, exDS=pick_dataset(datasets), verbose=inps.verbose)
