@@ -148,11 +148,15 @@ class polylineProfiles:
             pxEnd, pyEnd = lola_to_xy(self.tnsf, *profGeom.profEnd)
 
             # Extract profiles
-            profDist, profPts = extract_profile(self.img,
+            pxDist, profPts = extract_profile(self.img,
                 pxStart=pxStart, pyStart=pyStart, pxEnd=pxEnd, pyEnd=pyEnd,
-                width=self.profWidth/self.tnsf[1],
+                pxWidth=self.profWidth/self.tnsf[1],
                 mask=self.mask,
                 verbose=self.verbose)
+
+            # Scale profile distance from pixels to map units
+            pxSize = self.tnsf[1]
+            profDist = pxDist*pxSize
 
             # Append to lists
             self.profDists.append(profDist)

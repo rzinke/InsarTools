@@ -3,7 +3,6 @@ SHORT DESCRIPTION
 Fit various functions, including 1D signals, planes, etc.
 
 FUTURE IMPROVEMENTS
-fit_linear, fit_periodic
 
 TESTING STATUS
 Tested.
@@ -103,7 +102,7 @@ def fit_atan(x, y, initial=None, verbose=False, plot=False):
     Fit an arctangent function to a series of data points.
     '''
     # Model function
-    atan = lambda x, a, b: a*np.arctan(b*x)
+    atan = lambda x, a, b, c, d: a*np.arctan(b*(x-c))+d
 
     # Fit to data points
     B, cov = optimize.curve_fit(atan, x, y, p0=initial)
@@ -113,20 +112,22 @@ def fit_atan(x, y, initial=None, verbose=False, plot=False):
 
     # Compute residuals
     res = y - yhat
-    RSS = np.sqrt(np.sum(res**2))  # root sum of squares
-    expRes = RSS/len(res)  # expected residual
+    RMSE = np.sqrt(np.sum(res**2)/len(x))  # root mean squared error
 
     # Report if requested
+    a, b, c, d = B
+    a = a*np.pi/2
+
     if verbose == True:
         print('Arctangent fit')
-        print('a: {:f}, b: {:f}'.format(*B))
-        print('Expected residual: {:f}'.format(expRes))
+        print('a: {:.4f}\nb: {:.4f}\nc: {:.4f}\nd: {:.4f}'.format(a, b, c, d))
+        print('RMSE: {:f}'.format(RMSE))
 
     # Plot if requested
     if plot == True:
         fig, ax = plt.subplots()
         ax.plot(x, y, 'k.', label='data')
-        ax.plot(x, yhat, 'b', label='fit')
+        ax.plot(x, yhat, 'r', label='fit')
 
     return yhat, B
 

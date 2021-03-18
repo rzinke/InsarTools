@@ -326,21 +326,20 @@ class profile_geometry:
 
 
 ### PROFILING ---
-def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, width, mask=None, verbose=False):
+def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, pxWidth, mask=None, verbose=False):
     '''
-    Extract polyline-perpendicular profiles from one or more images.
+    Extract a profile from an image.
     INPUTS
-        pxStart and pxEnd are the start and end points of the profile, given in
-         pixels
-        width is the width of the profile, given in pixels
+        pxStart and pxEnd are the start and end points of the profile
+        profWidth is the width of the profile
+
+        * All units are given in pixel values, not geographic coodinates.
     '''
-    if verbose == True: print('Extracting profile')
+    if verbose == True: print('Extracting profile...')
 
     # Parameters
     M, N = img.shape
     MN = M*N
-    w2 = int(width/2)
-    copyimg = img.copy()
 
     # Build grid
     x = np.arange(N)
@@ -348,12 +347,28 @@ def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, width, mask=None, verbo
 
     X, Y = np.meshgrid(x, y)
 
-    # Recenter at starting coordinates
+    # Format profile grid
+    X, Y, pxLen = format_profile_grid(X, Y, pxStart, pyStart, pxEnd, pyEnd, verbose=verbose)
+
+    # Extract valid pixels
+    profDist, profPts = extract_profile_values(img, X, Y, pxLen, pxWidth, mask=mask, verbose=verbose)
+
+    return profDist, profPts
+
+
+def format_profile_grid(X, Y, pxStart, pyStart, pxEnd, pyEnd, verbose=False):
+    '''
+    Format the pixel grid such that X, Y are centered and rotated such that
+     X increases with distance along the profile length, and Y increases or
+     decreases with profile width.
+    '''
+    if verbose == True: print('... formatting grid')
+    # Recenter at starting pixel
     X = X - pxStart
     Y = Y - pyStart
 
-    # Determine direction unit vector
-    p, pLen = determine_pointing_vector(pxStart, pyStart, pxEnd, pyEnd, verbose=verbose)
+    # Determine direction unit vector p
+    p, pxLen = determine_pointing_vector(pxStart, pyStart, pxEnd, pyEnd, verbose=verbose)
 
     # Determine rotation angle
     theta = pointing_vector_to_angle(p[0], p[1], verbose=verbose)
@@ -361,9 +376,31 @@ def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, width, mask=None, verbo
     # Rotate coordinates
     X, Y = rotate_coordinates(X, Y, -theta)
 
+    return X, Y, pxLen
+
+
+def extract_profile_values(img, X, Y, pxLen, pxWidth, mask=None, verbose=False):
+    '''
+    Extract the valid pixels from an image given X and Y grid values that are
+     already rotated into profile-centric coordinate system (e.g., using the
+     "extract profile" function.)
+
+    INPUTS
+        img is the image from while the profile is to be extracted
+        X, Y are the image coordinate arrays, centered and rotated such that 
+         X increases with distance along the profile length, and Y increases
+         or decreases with profile width.
+
+        * All units are given in pixel values, not geographic coordinates.
+    '''
+    if verbose == True: print('... extracting pixels')
+
+    # Parameters
+    w2 = int(pxWidth/2)
+
     # Extract valid pixels
     validPts = np.ones(img.shape)
-    validPts[X>pLen] = 0
+    validPts[X>pxLen] = 0
     validPts[X<0] = 0
     validPts[Y<-w2] = 0
     validPts[Y>w2] = 0
@@ -377,3 +414,35 @@ def extract_profile(img, pxStart, pyStart, pxEnd, pyEnd, width, mask=None, verbo
     del validPts  # clear memory
 
     return profDist, profPts
+
+
+
+### BINNING ---
+def profile_binning(profDist, profPts, binWidth=None, binSpacing=None):
+    '''
+    Find the bin values of unevenly sampled and redundant data along a profile.
+    This is essentially equivalent to a moving median filter.
+    '''
+    # Parameters
+    if binSpacing is None:
+        sortedDists = np.sort(profDist)  # sort profDist smallest to largest
+        binSpacing = 4*np.mean(np.diff(sortedDists))  # mean distance between points
+    if binWidth is None:
+        binWidth = binSpacing*2  # twice the bin spacing
+
+    # Setup
+    w2 = binWidth/2  # half-width of bins
+    x = np.arange(w2, profDist.max()-w2, binSpacing)
+    nBins = len(x)  # number of bins
+    binStarts = x - w2  # starting point of each bin
+    binEnds = x + w2  # ending point of each bin
+    y = np.empty(nBins)
+    y[:] = np.nan
+
+    # Find points in each bin
+    for n in range(nBins):
+        binPts = profPts[(profDist >= binStarts[n]) & (profDist < binEnds[n])]
+        if len(binPts) > 0:
+            y[n] = np.nanmedian(binPts)
+
+    return x, y

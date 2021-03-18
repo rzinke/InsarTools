@@ -336,34 +336,7 @@ def load_mintpy_geometry(geomName, verbose=False):
 
 
 
-### PROFILE SAVING ---
-def save_profile_data(outName, profStart, profEnd, profDist, profPts, verbose=False):
-    '''
-    Save profile using standardized format.
-    '''
-    # Setup
-    assert len(profDist) == len(profPts), 'Number of distance and measurements points must be identical'
-    nPts = len(profDist)
-
-    # File formatting
-    metadata = 'start: {:f},{:f}\nend: {:f},{:f}\n'
-    header = '# distance amplitude\n'
-    dataStr = '{:f} {:f}\n'
-
-    # Write contents to file
-    with open(outName, 'w') as profFile:
-        profFile.write(metadata.format(*profStart, *profEnd))
-        profFile.write(header)
-        for i in range(nPts):
-            profFile.write(dataStr.format(profDist[i], profPts[i]))
-
-    # Report if requested
-    if verbose == True:
-        print('Saved profile: {:s}'.format(outName))
-
-
-
-### POLYLINE LOADING ---
+### PROFILE LOADING ---
 def load_polyline(polylineName, verbose=False):
     '''
     Load a polyline from a text file in x, y format.
@@ -399,3 +372,99 @@ def load_polyline(polylineName, verbose=False):
         print('{:d} vertices detected'.format(nVertices))
 
     return x, y
+
+
+def load_profile_data(profFilename, verbose=False):
+    '''
+    Load profile data.
+    '''
+    if verbose == True: print('Loading profile: {:s}'.format(profFilename))
+
+    # Load profile contents
+    with open(profFilename, 'r') as profFile:
+        lines = profFile.readlines()
+
+    # Parse profile data
+    startXY = lines[0]
+    endXY = lines[1]
+    header = lines[2]
+    profData = lines[3:]
+
+    # Loop through data points
+    nPts = len(profData)
+    profDists = []; profPts = []
+
+    for i in range(nPts):
+        datum = profData[i].split(' ')
+        profDists.append(float(datum[0]))
+        profPts.append(float(datum[1]))
+
+    # Convert to numpy arrays
+    profDists = np.array(profDists)
+    profPts = np.array(profPts)
+
+    return profDists, profPts
+
+
+def load_profile_endpoints(queryFilename, verbose=False):
+    '''
+    Load the profile endpoints from a text file. Coordinate should be in format
+     startX,startY endX,endY
+    '''
+    if verbose == True: print('Loading profile endpoints')
+
+    # Read file contents
+    with open(queryFilename, 'r') as queryFile:
+        profData = queryFile.readlines()
+
+    # Parse coordinates
+    startLons = []; startLats = []
+    endLons = []; endLats = []
+
+    for prof in profData:
+        # Start and end points
+        startPt, endPt = prof.split(' ')
+
+        # Lon/lat
+        startLon, startLat = startPt.split(',')
+        startLons.append(float(startLon))
+        startLats.append(float(startLat))
+
+        endLon, endLat = endPt.split(',')
+        endLons.append(float(endLon))
+        endLats.append(float(endLat))
+
+    # Number of profiles
+    nProfs = len(startLons)
+
+    # Report if requested
+    if verbose == True: print('... {:d} profiles detected'.format(nProfs))
+
+    return startLons, startLats, endLons, endLats
+
+
+
+### PROFILE SAVING ---
+def save_profile_data(outName, profStart, profEnd, profDist, profPts, verbose=False):
+    '''
+    Save profile using standardized format.
+    '''
+    # Setup
+    assert len(profDist) == len(profPts), 'Number of distance and measurements points must be identical'
+    nPts = len(profDist)
+
+    # File formatting
+    metadata = 'start: {:f},{:f}\nend: {:f},{:f}\n'
+    header = '# distance amplitude\n'
+    dataStr = '{:f} {:f}\n'
+
+    # Write contents to file
+    with open(outName, 'w') as profFile:
+        profFile.write(metadata.format(*profStart, *profEnd))
+        profFile.write(header)
+        for i in range(nPts):
+            profFile.write(dataStr.format(profDist[i], profPts[i]))
+
+    # Report if requested
+    if verbose == True:
+        print('Saved profile: {:s}'.format(outName))

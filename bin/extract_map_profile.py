@@ -12,7 +12,7 @@ Tested.
 ### IMPORT MODULES ---
 import argparse
 import matplotlib.pyplot as plt
-from IOsupport import load_gdal_dataset, confirm_outdir, confirm_outname_ext, confirm_overwrite, save_profile_data
+from IOsupport import load_profile_endpoints, load_gdal_dataset, confirm_outdir, confirm_outname_ext, confirm_overwrite, save_profile_data
 from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
 from Profiling import profile_geometry, extract_profile
@@ -38,8 +38,8 @@ def createParser():
         help='Arguments for masking values/maps. ([None]).')
 
     ProfileArgs = parser.add_argument_group('PROFILE ARGUMENTS')
-    ProfileArgs.add_argument('-q','--queryLoLa', dest='qLoLa', nargs=2, required=True,
-        help='Query point in geographic coordinates (e.g., 89.25,34.07 88.72,37.02)')
+    ProfileArgs.add_argument('-q','--queryfile', dest='queryFile', type=str, default=None,
+        help='Profile endpoints in geographic coordinates, one profile per line (lonStart,latStart lonEnd,latEnd).')
     ProfileArgs.add_argument('-w','--profile-width', dest='profWidth', type=float, default=None,
         help='Profile width in map units.')
 
@@ -108,7 +108,7 @@ class mapProfile:
 
 
     ## Profiling
-    def query_profile(self, qLoLa, profWidth):
+    def query_profile(self, queryFile, profWidth):
         '''
         Query the profile between the points given in qLoLa and with the
          specified width.
@@ -116,7 +116,7 @@ class mapProfile:
         if self.verbose == True: print('Querying location:')
 
         # Parse profile points
-        self.__parse_prof_points__(qLoLa)
+        self.__parse_prof_points__(queryFile)
 
         # Format profile width
         self.__format_width__(profWidth)
@@ -126,39 +126,38 @@ class mapProfile:
         self.profGeom.from_endpoints((self.startLon, self.startLat), (self.endLon, self.endLat), self.profWidth)
 
         # Extract profile
-        self.profDist, self.profPts = extract_profile(img=self.img,
+        self.pxDist, self.profPts = extract_profile(img=self.img,
             pxStart=self.pxStart, pyStart=self.pyStart,
             pxEnd=self.pxEnd, pyEnd=self.pyEnd,
-            width=self.pxWidth,
+            pxWidth=self.pxWidth,
             mask=self.mask,
             verbose=self.verbose)
+
+        # Scale profile distance from pixels to map units
+        pxSize = self.tnsf[1]
+        self.profDist = self.pxDist*pxSize
 
         # Number of profile points
         self.nPts = len(self.profPts)
 
 
-    def __parse_prof_points__(self, qLoLa):
+    def __parse_prof_points__(self, queryFile):
         '''
         Confirm that the query points are in the correct format, i.e.,
-            qLoLa = ((startLon,startLat) (endLon,endLat))
+            ((startLon,startLat) (endLon,endLat))
         and are within the extent of the map.
         '''
-        # Format query points
-        assert len(qLoLa) == 2, 'Not enough query points provided'
-        for i in range(2):
-            assert len(qLoLa[i].split(',')) == 2, 'Query point must have format (x, y)'
+        # Load profile inputs
+        startLons, startLats, endLons, endLats = load_profile_endpoints(queryFile, verbose=self.verbose)
 
-        # Parse lon/lat points
-        startLoLa, endLoLa = qLoLa
+        if len(startLons) > 1: print('WARNING: More than one profile detected.')
 
-        startLon, startLat = startLoLa.split(',')
-        endLon, endLat = endLoLa.split(',')
+        # Parse profile inputs
+        self.startLon = startLons[0]
+        self.startLat = startLats[0]
 
-        self.startLon = float(startLon)
-        self.startLat = float(startLat)
-
-        self.endLon = float(endLon)
-        self.endLat = float(endLat)
+        self.endLon = endLons[0]
+        self.endLat = endLats[0]
 
         # Report if requested
         if self.verbose == True:
@@ -261,7 +260,7 @@ if __name__ == '__main__':
         verbose=inps.verbose)
 
     # Query profile
-    prof.query_profile(inps.qLoLa, inps.profWidth)
+    prof.query_profile(inps.queryFile, inps.profWidth)
 
     # Plot if requested
     if inps.plot == True:

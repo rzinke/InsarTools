@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 '''
 SHORT DESCRIPTION
-Read a MintPy timeseries.h5 file. Plot the points and fit a curve to them.
+Read a GDAL-compatible data cube or list of files.
+Plot the points and fit a curve to them.
 
 FUTURE IMPROVEMENTS
+    * Accept list of fnames
+    * Accept list of dates
 
 TESTING STATUS
 Tested.
@@ -15,16 +18,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from pandas.plotting import register_matplotlib_converters
-import h5py
-from IOsupport import confirm_outdir, load_mintpy_timeseries, load_mintpy_velocity, load_gdal_dataset
-from GeoFormatting import get_mintpy_transform, transform_to_extent, lola_to_xy, get_mintpy_reference_point
+from IOsupport import confirm_outdir, load_gdal_dataset
+from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
 from Viewing import plot_raster
 from Fitting import dates_to_datetimes, time_since_reference, fit_linear, fit_periodic
 
 
 ### PARSER ---
-Description = '''Read a MintPy timeseries.h5 file. Plot the points and fit a curve to them.'''
+Description = '''Read a GDAL-compatible data cube or list of files. Plot the points and fit a curve to them.'''
 
 Examples = ''''''
 
@@ -35,7 +37,9 @@ def createParser():
 
     InputArgs = parser.add_argument_group('INPUTS')
     InputArgs.add_argument(dest='tsName', type=str,
-        help='MintPy timeseries.h5 file.')
+        help='Timeseries file(s).')
+    InputArgs.add_argument('-d','--date-list', dest='dateList', type=str, required=True,
+        help='List of dates in format YYYYMMDD (list or file with one date per line).')
     InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
         help='Arguments for masking values/maps. ([None]).')
 
@@ -67,8 +71,8 @@ def cmdParser(iargs = None):
 
 
 ### TS ANALYSIS CLASS ---
-class MintPyTSanalysis:
-    def __init__(self, tsName, outName, maskArgs=None, fitType=None, verbose=False):
+class TSanalysis:
+    def __init__(self, tsName, dateList, outName, maskArgs=None, fitType=None, verbose=False):
         '''
         Evaluate a displacement timeseries.
 
@@ -85,13 +89,13 @@ class MintPyTSanalysis:
         self.__format_fit_type__(fitType)
 
         # Load MintPy data set
-        self.__load_data__(tsName)
+        self.__load_images__(tsName)
+
+        # Load dates
+        self.__load_dates__(dateList)
 
         # Create mask
         self.mask = create_mask(self.disps[-1,:,:], maskArgs, verbose=self.verbose)
-
-        # Retrieve spatial extent
-        self.__parse_spatial_info__(tsName)
 
         # Keep table of queried data points
         self.queriedPoints = {}
@@ -115,35 +119,63 @@ class MintPyTSanalysis:
         self.fitType = fitType
 
 
-    def __load_data__(self, tsName):
+    def __load_images__(self, tsName):
         '''
-        Load the MintPy (HDF5) data set, parse the dates and displacements.
+        Load images and parse the spatial data.
         '''
-        # Open and close HDF5 data set
-        self.dates, self.disps = load_mintpy_timeseries(tsName, verbose=self.verbose)
+        # Load GDAL data sets
+        DS = load_gdal_dataset(tsName, verbose=self.verbose)
+
+        # Number of epochs
+        self.nEpochs = DS.RasterCount
+
+        # Format displacement maps into array
+        disps = []
+        for i in range(self.nEpochs):
+            disps.append(DS.GetRasterBand(i+1).ReadAsArray())
+
+        # Store as attribute
+        self.disps = []
+        for disp in disps:
+            # Replace NaNs with 0s
+            disp[np.isnan(disp)==1] = 0
+
+            # Append to list
+            self.disps.append(disp)
+
+        self.disps = np.array(self.disps)
+        
+        # Report if requested
+        if self.verbose == True:
+            print('Number of epochs detected: {:d}'.format(self.nEpochs))
+
+        # Geographic information
+        self.M, self.N = DS.RasterYSize, DS.RasterXSize
+        self.tnsf = DS.GetGeoTransform()
+
+        # Geographic extent
+        self.extent = transform_to_extent(self.tnsf, self.M, self.N, verbose=self.verbose)
+
+
+    def __load_dates__(self, dateList):
+        '''
+        Load and format list of dates.
+        '''
+        # Load dates from date list
+        with open(dateList, 'r') as dateFile:
+            dates = dateFile.readlines()
+
+        # Format dates
+        self.dates = [date.strip(',').strip('\n') for date in dates]
+
+        # Check that number of dates is the same as number of epochs
+        assert len(self.dates) == self.nEpochs, 'Number of dates must equal number of images.'
 
         # Convert dates to datetimes
         self.datetimes = dates_to_datetimes(self.dates, verbose=self.verbose)
 
         # Calculate time since beginning of series
         self.times = np.array(time_since_reference(self.datetimes, verbose=self.verbose))
-
-
-    def __parse_spatial_info__(self, tsName):
-        '''
-        Retrieve the geographic information
-        '''
-        # Data set sizes
-        self.nEpochs, self.M, self.N = self.disps.shape
-
-        # Geographic transform
-        self.tnsf = get_mintpy_transform(tsName, verbose=inps.verbose)
-
-        # Geographic extent
-        self.extent = transform_to_extent(self.tnsf, self.M, self.N, verbose=self.verbose)
-
-        # Reference point
-        self.refLon, self.refLat = get_mintpy_reference_point(tsName, verbose=self.verbose)
 
 
     def __format_outname__(self, outName):
@@ -245,6 +277,14 @@ class MintPyTSanalysis:
         else:
             self.basemap = self.disps[-1,:,:]  # final displacement
 
+        # Determine orientations
+        if self.M > self.N:
+            figsize = (5, 8)
+            self.cbarOrient = 'vertical'  # colorbar orientation
+        else:
+            figsize = (8, 5)
+            self.cbarOrient = 'horizontal'  # colorbar orientation
+
         # Establish timeseries plot
         self.tsFig = plt.figure(figsize=(10, 6))
 
@@ -262,7 +302,7 @@ class MintPyTSanalysis:
         self.saveButton.on_clicked(self.__save_clicked_profiles__)
 
         # Establish map plot
-        self.mapFig, self.axMap = plt.subplots(figsize=(5, 8))
+        self.mapFig, self.axMap = plt.subplots(figsize=figsize)
         self.__plot_basemap__()
 
         # Interact with map
@@ -298,11 +338,8 @@ class MintPyTSanalysis:
         # Plot base map
         self.mapFig, self.axMap = plot_raster(self.basemap,
             mask=self.mask, extent=self.extent,
-            minPct=1, maxPct=99, cbarOrient='vertical',
+            minPct=1, maxPct=99, cbarOrient=self.cbarOrient,
             fig=self.mapFig, ax=self.axMap)
-
-        # Plot reference point
-        self.axMap.plot(self.refLon, self.refLat, 'ks')
 
 
     def __plot_point_ts__(self, event):
@@ -447,7 +484,7 @@ if __name__ == '__main__':
 
 
     ## 1D timeseries
-    TS = MintPyTSanalysis(tsName=inps.tsName, outName=inps.outName, maskArgs=inps.maskArgs, fitType=inps.fitType,
+    TS = TSanalysis(tsName=inps.tsName, dateList=inps.dateList, outName=inps.outName, maskArgs=inps.maskArgs, fitType=inps.fitType,
         verbose=inps.verbose)
 
 
