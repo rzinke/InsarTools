@@ -567,7 +567,7 @@ class imgProfile:
 
         # Print profile properties
         print('\tProfile unit vector: {:.3f}, {:.3f}'.format(*v))
-        print('\tProfile width: {:.1f}'.format(self.profWidth))
+        print('\tProfile width: {:.6f}'.format(self.profWidth))
         print('\tProfile length: {:.1f}'.format(self.profLen))
         print('\tPointing azimuth: {:.1f} deg'.format(90-(180/np.pi)*theta))
         print('\t{:d} points within profile'.format(Npts))

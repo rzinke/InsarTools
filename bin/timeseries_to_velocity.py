@@ -8,7 +8,7 @@ FUTURE IMPROVEMENTS
     * Accept list of dates
 
 TESTING STATUS
-In development.
+Tested.
 '''
 
 ### IMPORT MODULES ---

@@ -93,6 +93,29 @@ def aria_to_los(ux, uy, uz, inc, az, verbose=False):
     return LOS
 
 
+def vector_to_aria_geom(px, py, pz, verbose=False):
+    '''
+    Convert the look vector components to angles following the ARIA convention.
+    '''
+    # Horizontal magnitude
+    horz = np.sqrt(px**2 + py**2)
+
+    # Incidence angle
+    inc = np.rad2deg(np.arctan2(horz, pz))
+
+    # Azimuth angle
+    az = np.rad2deg(np.arctan2(py, px))
+
+    # Report if requested
+    if verbose == True:
+        MedianInc = np.median(inc)
+        MedianAz = np.median(az)
+        print('Incidence: {:.1f}'.format(MedianInc))
+        print('Azimuth: {:.1f}'.format(MedianAz))
+
+    return inc, az
+
+
 
 ### ISCE GEOMETRIES ---
 class isce_sensitivity_factors:
