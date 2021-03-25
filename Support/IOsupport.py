@@ -10,6 +10,8 @@ Tested.
 
 ### IMPORT MODULES ---
 import os
+import re
+from glob import glob
 import numpy as np
 from osgeo import gdal
 import h5py
@@ -333,6 +335,60 @@ def load_mintpy_geometry(geomName, verbose=False):
         print('Loaded MintPy geometry file')
         print('Parsed incidence and azimuth')
         print('Sizes: {:d} x {:d}'.format(*inc.shape))
+
+
+
+### RELAX LOADING ---
+def detect_relax_files(relaxDir, verbose=False):
+    '''
+    Find all the Relax displacement files in a folder.
+    '''
+    if verbose == True: print('Detecting Relax filenames')
+
+    # Basic strings
+    Estr = '-east.grd'
+    Nstr = '-north.grd'
+    Ustr = '-up.grd'
+
+    # Search expressions for different components
+    srchE = '*{:s}'.format(Estr)
+    srchN = '*{:s}'.format(Nstr)
+    srchU = '*{:s}'.format(Ustr)
+
+    # Search strings for different components
+    srchStrE = os.path.join(relaxDir, srchE)
+    srchStrN = os.path.join(relaxDir, srchN)
+    srchStrU = os.path.join(relaxDir, srchU)
+
+    # Search for filenames for different components
+    Eresults = glob(srchStrE)
+    Nresults = glob(srchStrN)
+    Uresults = glob(srchStrU)
+
+    # Find timestep numbers
+    Enbs = list(set([re.findall('[0-9]{3}', Nresult)[0] for Nresult in Nresults]))
+    Nnbs = list(set([re.findall('[0-9]{3}', Nresult)[0] for Nresult in Nresults]))
+    Unbs = list(set([re.findall('[0-9]{3}', Uresult)[0] for Uresult in Uresults]))
+
+    # Check that all data are available
+    assert Enbs == Nnbs == Unbs, 'E, N, and Up must have the same number of components'
+    components = Enbs
+    nComponents = len(components)
+
+    # Report if requested
+    if verbose == True: print('Number of components detected: {:d}'.format(nComponents))
+
+    # Formulate file names
+    Enames = ['{:s}{:s}'.format(Enb, Estr) for Enb in Enbs]
+    Nnames = ['{:s}{:s}'.format(Nnb, Nstr) for Nnb in Nnbs]
+    Unames = ['{:s}{:s}'.format(Unb, Ustr) for Unb in Unbs]
+
+    # Formulate path names
+    Epaths = [os.path.join(relaxDir, Ename) for Ename in Enames]
+    Npaths = [os.path.join(relaxDir, Nname) for Nname in Nnames]
+    Upaths = [os.path.join(relaxDir, Uname) for Uname in Unames]
+
+    return Epaths, Npaths, Upaths
 
 
 

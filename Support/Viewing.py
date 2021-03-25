@@ -255,6 +255,8 @@ def raster_multiplot(imgs, mrows=1, ncols=1,
     fig.suptitle(suptitle)
     fig.tight_layout()
 
+    return fig, axes
+
 
 
 ### VECTORS ---

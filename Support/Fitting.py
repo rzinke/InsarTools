@@ -115,10 +115,9 @@ def fit_atan(x, y, initial=None, verbose=False, plot=False):
     RMSE = np.sqrt(np.sum(res**2)/len(x))  # root mean squared error
 
     # Report if requested
-    a, b, c, d = B
-    a = a*np.pi/2
-
     if verbose == True:
+        a, b, c, d = B
+        a = a*np.pi/2
         print('Arctangent fit')
         print('a: {:.4f}\nb: {:.4f}\nc: {:.4f}\nd: {:.4f}'.format(a, b, c, d))
         print('RMSE: {:f}'.format(RMSE))

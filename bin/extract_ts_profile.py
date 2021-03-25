@@ -296,7 +296,7 @@ class MintPyTSprofile:
         # Loop through profiles
         for i in range(self.nEpochs):
             # Append profile name
-            fname = append_fname(outName, '_{:d}'.format(i+1))
+            fname = append_fname(outName, '_{:s}'.format(self.dates[i]))
 
             # Report if requested
             if self.verbose == True: print('... {:s}'.format(os.path.basename(fname)))

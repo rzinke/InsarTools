@@ -4,6 +4,7 @@ SHORT DESCRIPTION
 Read a MintPy timeseries.h5 file. Plot the points and fit a curve to them.
 
 FUTURE IMPROVEMENTS
+    * Reference timeseries
 
 TESTING STATUS
 Tested.
@@ -79,6 +80,7 @@ class MintPyTSanalysis:
         '''
         # Parameters
         self.k = 0  # start query counter
+        self.refTS = None  # reference timeseries
         self.verbose = verbose
 
         # Format fit type
