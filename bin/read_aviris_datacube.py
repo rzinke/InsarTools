@@ -4,6 +4,7 @@ SHORT DESCRIPTION
 Read a MintPy timeseries.h5 file. Plot the points and fit a curve to them.
 
 FUTURE IMPROVEMENTS
+    * Pixel width greater than 1
 
 TESTING STATUS
 Tested.
@@ -17,7 +18,7 @@ from matplotlib.widgets import Button
 from pandas.plotting import register_matplotlib_converters
 import h5py
 from IOsupport import confirm_outdir, load_gdal_dataset
-from GeoFormatting import get_mintpy_transform, transform_to_extent, lola_to_xy, get_mintpy_reference_point
+from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
 from Fitting import dates_to_datetimes, time_since_reference, fit_linear, fit_periodic
 
@@ -42,13 +43,6 @@ def createParser():
     QueryArgs = parser.add_argument_group('QUERY ARGUMENTS')
     QueryArgs.add_argument('-q','--queryfile', dest='queryFile', type=str, default=None,
         help='Query points with points in geographic coordinates, one query point per line (e.g., -118.325,35.456).')
-    QueryArgs.add_argument('-i','--interactive', dest='interactive', action='store_true',
-        help='Interactive mode.')
-    QueryArgs.add_argument('--display-map', dest='displayMap', type=str, default=None,
-        help='Map layer to display. Provide name of velocity file as .tif or .h5. ([None] uses cumulative displacement).')
-    QueryArgs.add_argument('--fit-type', dest='fitType', type=str, default=None,
-        help='Fit function ([None], linear, seasonal).')
-
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
@@ -71,12 +65,7 @@ def cmdParser(iargs = None):
 class AVIRISanalysis:
     def __init__(self, avirisName, outName, maskArgs=None, verbose=False):
         '''
-        Evaluate a displacement timeseries.
-
-        INPUTS
-            dates is a E-length list of dates
-            disps is a (E x M x N) array of maps, where E is the number of
-             displacement epochs
+        Evaluate an AVIRIS spectral data set.
         '''
         # Parameters
         self.k = 0  # start query counter
@@ -134,7 +123,7 @@ class AVIRISanalysis:
     ## Timeseries analysis
     def __get_spectrum__(self, lon, lat):
         '''
-        Retrieve epoch displacements for the given pixel value.
+        Retrieve spectral values for the given pixel value.
         '''
         # Convert to pixel values
         px, py = lola_to_xy(self.tnsf, lon, lat, verbose=self.verbose)
@@ -257,7 +246,7 @@ class AVIRISanalysis:
         if self.verbose == True: print('Saving profiles')
 
         # Setup
-        legend = '# Lat, Lon, px, py / Date (YYYYMMDD), displacement (m)\n'
+        legend = '# Lat, Lon, px, py\n'
         metadata = '{:.6f}, {:.6f}, {:d}, {:d}\n'
         dataFmt = '{:.6f}\n'
 

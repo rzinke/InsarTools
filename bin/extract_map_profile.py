@@ -11,6 +11,7 @@ Tested.
 
 ### IMPORT MODULES ---
 import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 from IOsupport import load_profile_endpoints, load_gdal_dataset, confirm_outdir, confirm_outname_ext, confirm_overwrite, save_profile_data
 from GeoFormatting import transform_to_extent, lola_to_xy
@@ -100,6 +101,9 @@ class mapProfile:
 
         # Extract image values
         self.img = DS.GetRasterBand(band).ReadAsArray()
+
+        # Replace NaNs with zeros
+        self.img[np.isnan(self.img) == 1] = 0
 
         # Extract geographic information
         self.M, self.N = DS.RasterYSize, DS.RasterXSize

@@ -4,7 +4,9 @@ SHORT DESCRIPTION
 View Relax displacement outputs.
 
 FUTURE IMPROVEMENTS
-    * Save PNGs of images (without displaying)
+    * Project into LOS
+    * Consistent color scale
+    * Zoom in on fault
 
 TESTING STATUS
 Tested.
@@ -12,11 +14,13 @@ Tested.
 
 ### IMPORT MODULES ---
 import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 from IOsupport import detect_relax_files, load_gdal_datasets
 from GeoFormatting import DS_to_extent
 from Masking import create_mask
-from Viewing import raster_multiplot
+from Viewing import dataset_clip_values, raster_multiplot
+from project_to_los import LOSproject
 
 
 ### PARSER ---
@@ -41,6 +45,23 @@ def createParser():
         help='Colormap ([viridis]).')
     DisplayArgs.add_argument('-co','--colorbar-orientation', dest='cbarOrient', type=str, default='vertical',
         help='Colorbar orientation (horizontal, [vertical]).')
+    DisplayArgs.add_argument('-vmin','--min-value', dest='vmin', type=float, default=None,
+        help='Minimum clip value ([None]).')
+    DisplayArgs.add_argument('-vmax','--max-value', dest='vmax', type=float, default=None,
+        help='Maximum clip value ([None]).')
+
+
+    ProjectionArgs = parser.add_argument_group('PROJECTION')
+    ProjectionArgs.add_argument('--projection-convention', dest='projConvention', type=str, default=None,
+        help='Projection convention ([None], ARIA, ISCE].')
+    ProjectionArgs.add_argument('--incidence', dest='incInpt', type=str, default=None,
+        help='Incidence (float or filename).')
+    ProjectionArgs.add_argument('--azimuth', dest='azInpt', type=str, default=None,
+        help='Azimuth (float or filename).')
+    ProjectionArgs.add_argument('--geometry', dest='geomFile', type=str, default=None,
+        help='ISCE geometry file.')
+    ProjectionArgs.add_argument('--wrap', dest='wrap', type=float, default=None,
+        help='Wrap signal to value ([None]).')
 
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
@@ -74,30 +95,86 @@ if __name__ == '__main__':
     Ndata = load_gdal_datasets(Nnames, verbose=inps.verbose)
     Udata = load_gdal_datasets(Unames, verbose=inps.verbose)
 
-    # List keys
-    Ekeys = list(Edata.keys())
-    Nkeys = list(Ndata.keys())
-    Ukeys = list(Udata.keys())
+    # Number of epochs
+    nEdata = len(Edata)
+    nNdata = len(Ndata)
+    nUdata = len(Udata)
+    assert nEdata == nNdata == nUdata, \
+        'Number of E ({:d}), N ({:d}), U ({:d}) data are not the same'.format(nEdata, nNdata, nUdata)
+    nEpochs = nEdata
 
-    # Check that data sets are equal length
-    assert len(Ekeys) == len(Nkeys) == len(Ukeys), \
-        'E, N, and up data sets must be equal length'
+    # Extract images from data sets
+    Eimgs = [DS.GetRasterBand(1).ReadAsArray() for DS in Edata.values()]
+    Nimgs = [DS.GetRasterBand(1).ReadAsArray() for DS in Ndata.values()]
+    Uimgs = [DS.GetRasterBand(1).ReadAsArray() for DS in Udata.values()]
 
-    nDatasets = len(Ekeys)
+    # Determine clip values
+    Emin, Emax = dataset_clip_values(Eimgs, verbose=inps.verbose)
+    Nmin, Nmax = dataset_clip_values(Nimgs, verbose=inps.verbose)
+    Umin, Umax = dataset_clip_values(Uimgs, verbose=inps.verbose)
+
+    if inps.vmin is not None:
+        vmin = inps.vmin
+    else:
+        vmin = np.min([Emin, Nmin, Umin])
+
+    if inps.vmax is not None:
+        vmax = inps.vmax
+    else:
+        vmax = np.max([Emax, Nmax, Umax])
+
+    # Geographic extent
+    extent = DS_to_extent(list(Edata.values())[0])  # same geographic extent
 
 
-    ## Plot data
-    for i in range(nDatasets):
-        # Format images into list
-        imgs = [Edata[Ekeys[i]], Ndata[Nkeys[i]], Udata[Ukeys[i]]]
+    ## Plotting
+    # Loop through epochs
+    for i in range(nEpochs):
+        # Retrieve images for the 
+        Eimg = Eimgs[i]
+        Nimg = Nimgs[i]
+        Uimg = Uimgs[i]
 
-        # Plot images
-        fig, axes = raster_multiplot(imgs, mrows=2, ncols=2,
-            cmap=inps.cmap, cbarOrient=inps.cbarOrient)
+        # Format inputs based on projection or not
+        if inps.projConvention is not None:
+            # Project into LOS
+            Pimg = LOSproject(convention=inps.projConvention,
+                incInpt=inps.incInpt, azInpt=inps.azInpt, geomFile=inps.geomFile,
+                Einpt=Eimg, Ninpt=Nimg, Vinpt=Uimg,
+                verbose=inps.verbose)
 
-        axes[0].set_title('East')
-        axes[1].set_title('North')
-        axes[2].set_title('Up')
+            LOS = Pimg.LOS
+
+            # Wrap if requested
+            if inps.wrap is not None:
+                LOS %= inps.wrap
+                LOS *= vmax/inps.wrap
+
+            # Format images as a stack
+            imgs = [Eimg, Nimg, Uimg, LOS]
+
+            # Format titles
+            titles = ['E', 'N', 'U', 'Proj']
+
+        else:
+            # Format images as a stack
+            imgs = [Eimg, Nimg, Uimg]
+
+            # Format titles
+            titles = ['E', 'N', 'U']
+
+        # Format super title
+        suptitle = Enames[i][:3]
+
+        # Spawn figure
+        fig, axes = plt.subplots(figsize=(8,6), nrows=2, ncols=2)
+
+        # Plot model results
+        fig, axes = raster_multiplot(imgs, mrows=2, ncols=2, extent=extent,
+            cmap=inps.cmap, cbarOrient=inps.cbarOrient,
+            vmin=vmin, vmax=vmax,
+            titles=titles, suptitle=suptitle,
+            fig=fig, axes=axes)
 
 
     plt.show()

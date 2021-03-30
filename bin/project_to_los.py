@@ -71,7 +71,7 @@ def cmdParser(iargs = None):
 
 ### CHECKS ---
 class LOSproject:
-    def __init__(self, convention, incInpt, azInpt, geomFile, Einpt, Ninpt, Vinpt, maskArgs, verbose=False):
+    def __init__(self, convention, incInpt, azInpt, geomFile, Einpt, Ninpt, Vinpt, maskArgs=None, verbose=False):
         '''
         Class for converting three components of motion to satellite line of 
          sight based on radar geometry.
@@ -196,6 +196,10 @@ class LOSproject:
             if self.verbose == True and label is not None:
                 print('{:s} value identified as a map file'.format(label))
 
+        # Check if input is already a numpy array
+        elif type(value) == np.ndarray:
+            valueType = 'array'
+
         # Test if value type can be converted to float
         else:
             try:
@@ -318,6 +322,8 @@ class LOSproject:
         # Load the input based on file type
         if inptType == 'float':
             value = float(inpt)
+        elif inptType == 'array':
+            value = inpt
         elif inptType == 'map':
             DS = load_gdal_dataset(inpt, verbose=self.verbose)
             extent = DS_to_extent(DS)  # spatial extent

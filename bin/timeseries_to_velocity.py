@@ -5,7 +5,7 @@ Convert timeseries displacements to velocities.
 
 FUTURE IMPROVEMENTS
     * Accept list of fnames
-    * Accept list of dates
+    * Accept list of dates in command line
 
 TESTING STATUS
 Tested.
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from pandas.plotting import register_matplotlib_converters
 import multiprocessing as mp
-from IOsupport import confirm_outdir, confirm_outname_ext, load_gdal_dataset, save_gdal_dataset
+from IOsupport import confirm_outdir, confirm_outname_ext, append_fname, load_gdal_dataset, save_gdal_dataset
 from GeoFormatting import transform_to_extent, lola_to_xy
 from Masking import create_mask
 from Viewing import plot_raster
@@ -171,14 +171,29 @@ class TS2velocity:
         self.__format_fit_type__(fitType)
 
         # Format inversion matrix
-        self.__format_inversion_matrix__()
+        self.__build_design_matrix__()
+        self.__invert_design_matrix__()
 
         # Loop through each pixel
         self.velocityMap = np.zeros((self.M, self.N))
+        self.residualMap = np.zeros((self.M, self.N))
 
         for i in range(self.M):
             for j in range(self.N):
-                self.velocityMap[i,j] = self.__solve_velocity__(self.disps[:,i,j])
+                # Recall displacements
+                disps = self.disps[:,i,j]
+
+                # Solve for component scaling factors
+                B = self.__find_velocity_components__(disps)
+
+                # Store linear velocity
+                self.velocityMap[i,j] = B[1]  # second term is always linear component
+
+                # Compute residuals
+                residuals = disps - self.G.dot(B)
+
+                # Store residuals
+                self.residualMap[i,j] = np.sqrt(np.mean(residuals**2))
 
 
     def __format_fit_type__(self, fitType):
@@ -196,15 +211,16 @@ class TS2velocity:
         self.fitType = fitType
 
 
-    def __format_inversion_matrix__(self):
+    def __build_design_matrix__(self):
         '''
-        Build and invert the design matrix based on the fit type.
+        Create the design matrix based on the fit type.
+        First component is always offset; second is always linear velocity.
         '''
         # For linear fit
         if self.fitType == 'linear':
             # Formulate design matrix
-            G = np.ones((self.nEpochs, 2))
-            G[:,1] = self.times.flatten()
+            self.G = np.ones((self.nEpochs, 2))
+            self.G[:,1] = self.times.flatten()
 
         # For seasonal fit
         elif self.fitType == 'seasonal':
@@ -212,25 +228,31 @@ class TS2velocity:
             freq = 1  # per year
 
             # Formulate design matrix
-            G = np.ones((self.nEpochs, 4))
-            G[:,1] = self.times.flatten()
-            G[:,2] = np.sin(2*np.pi*freq*self.times).flatten()
-            G[:,3] = np.cos(2*np.pi*freq*self.times).flatten()
+            self.G = np.ones((self.nEpochs, 4))
+            self.G[:,1] = self.times.flatten()
+            self.G[:,2] = np.sin(2*np.pi*freq*self.times).flatten()
+            self.G[:,3] = np.cos(2*np.pi*freq*self.times).flatten()
 
+
+    def __invert_design_matrix__(self):
+        '''
+        Invert the design matrix based on the fit type.
+        Ideally only do this once.
+        '''
         # Invert design matrix
-        self.inverseMatrix = np.linalg.inv(np.dot(G.T, G)).dot(G.T)
+        self.inverseMatrix = np.linalg.inv(np.dot(self.G.T, self.G)).dot(self.G.T)
 
 
-    def __solve_velocity__(self, displacements):
+    def __find_velocity_components__(self, displacements):
         '''
         Solve for the beta vector by taking the dot product Ginv.displacements.
         The second term in the beta vector is the linear component.
+
+        Feed this through a loop to parallelize.
         '''
         B = self.inverseMatrix.dot(displacements)
 
-        linearTerm = B[1]
-
-        return linearTerm
+        return B
 
 
     ## Plotting
@@ -246,13 +268,23 @@ class TS2velocity:
             figsize = (8, 5)
             cbarOrient = 'horizontal'  # colorbar orientation
 
-        # Spawn figure
-        fig, ax = plt.subplots(figsize=figsize)
+        # Velocity map
+        velFig, axVel = plt.subplots(figsize=figsize)
 
         # Plot velocity map
         plot_raster(self.velocityMap, mask=self.mask, extent=self.extent,
+            cmap='jet', cbarOrient=cbarOrient,
+            minPct=1, maxPct=99, fig=velFig, ax=axVel)
+        axVel.set_title('Linear velocity')
+
+        # Residual map
+        resFig, axRes = plt.subplots(figsize=figsize)
+
+        # Plot residual map
+        plot_raster(self.residualMap, mask=self.mask, extent=self.extent,
             cmap='viridis', cbarOrient=cbarOrient,
-            minPct=1, maxPct=99, fig=fig, ax=ax)
+            minPct=1, maxPct=99, fig=resFig, ax=axRes)
+        axRes.set_title('Residuals')
 
 
     ## Saving
@@ -263,10 +295,17 @@ class TS2velocity:
         if self.verbose == True: print('Saving to file: {:s}'.format(outName))
 
         confirm_outdir(outName)  # confirm output directory exists
-        outName = confirm_outname_ext(outName, ['tif', 'tiff'])  # confirm file extension
+        velName = confirm_outname_ext(outName, ['tif', 'tiff'])  # confirm file extension
 
-        # Save data set
-        save_gdal_dataset(outName, self.velocityMap, mask=self.mask,
+        # Save velocity map
+        save_gdal_dataset(velName, self.velocityMap, mask=self.mask,
+            proj=self.proj, tnsf=self.tnsf, verbose=inps.verbose)
+
+        # Format residuals name
+        resName = append_fname(velName, '_residuals')
+
+        # Save residuals map
+        save_gdal_dataset(resName, self.residualMap, mask=self.mask,
             proj=self.proj, tnsf=self.tnsf, verbose=inps.verbose)
 
 

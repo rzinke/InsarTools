@@ -38,6 +38,7 @@ def createParser():
     InputArgs.add_argument('-b','--band', dest='bandNb', type=int, default=1,
         help='Image band number to display.')
 
+
     DisplayArgs = parser.add_argument_group('DISPLAY PARAMS')
     DisplayArgs.add_argument('-c','--cmap', dest='cmap', type=str, default='viridis',
         help='Colormap ([viridis]).')
@@ -54,15 +55,19 @@ def createParser():
     DisplayArgs.add_argument('-eq','--equalize', dest='equalize', action='store_true',
         help='Equalize')
 
+
     HistogramArgs = parser.add_argument_group('HISTOGRAM')
     HistogramArgs.add_argument('-hist','--histogram', dest='plotHist', action='store_true')
+
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
     OutputArgs.add_argument('-o','--outname', dest='outName', type=str, default=None,
         help='Output name to save image.')
+
     return parser
+
 
 def cmdParser(iargs = None):
     parser = createParser()

@@ -366,9 +366,14 @@ def detect_relax_files(relaxDir, verbose=False):
     Uresults = glob(srchStrU)
 
     # Find timestep numbers
-    Enbs = list(set([re.findall('[0-9]{3}', Nresult)[0] for Nresult in Nresults]))
-    Nnbs = list(set([re.findall('[0-9]{3}', Nresult)[0] for Nresult in Nresults]))
-    Unbs = list(set([re.findall('[0-9]{3}', Uresult)[0] for Uresult in Uresults]))
+    Enbs = list(set([re.findall('[0-9]{3}', os.path.basename(Nresult))[0] for Nresult in Nresults]))
+    Nnbs = list(set([re.findall('[0-9]{3}', os.path.basename(Nresult))[0] for Nresult in Nresults]))
+    Unbs = list(set([re.findall('[0-9]{3}', os.path.basename(Uresult))[0] for Uresult in Uresults]))
+
+    # Sort numbers
+    Enbs.sort()
+    Nnbs.sort()
+    Unbs.sort()
 
     # Check that all data are available
     assert Enbs == Nnbs == Unbs, 'E, N, and Up must have the same number of components'

@@ -44,7 +44,7 @@ def match_rasters(datasets, cropping='union', resolution='fine', verbose=False):
         cropping determines how to treat the overlap of datasets ([union], intersection)
         resolution gives the finest or coarsest resolution, based on the inputs ([fine], coarse)
     OUTPUTS
-        datasets is a list or dictionary of resampled GDAL data sets
+        datasets is a dictionary of resampled GDAL data sets
     '''
     if verbose == True: print('Resampling rasters to common bounds')
 

@@ -11,7 +11,7 @@ Tested.
 ### IMPORT MODULES ---
 import sys
 import numpy as np
-from osgeo import gdal
+from osgeo import gdal, osr
 import h5py
 
 
@@ -378,9 +378,3 @@ def grid_from_transform(tnsf, M, N, verbose=False):
     X, Y = grid_from_spatial_info(spatInfo)
 
     return X, Y
-
-
-def rotate_grid(X, Y, angle):
-    '''
-    '''
-    pass

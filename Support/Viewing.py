@@ -12,7 +12,9 @@ Tested.
 ### IMPORT MODULES ---
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as pltColors
 from scipy.interpolate import interp1d
+from scipy.stats import gaussian_kde
 from osgeo import gdal
 from GeoFormatting import DS_to_extent
 
@@ -90,6 +92,39 @@ def image_clip_values(img, vmin, vmax, minPct, maxPct, verbose=False):
     return vmin, vmax
 
 
+def dataset_clip_values(imgs, minPct=0, maxPct=100, verbose=False):
+    '''
+    Determine the vmin and vmax for a set of images provided as a list or dict.
+    '''
+    # Convert dictionary to list
+    if type(imgs) == dict:
+        imgs = list(imgs.values())
+
+    assert type(imgs) == list, 'Provide images as list or dict'
+
+    # Empty lists of min/max values
+    imgMins = []; imgMaxs = []
+
+    # Loop through images
+    for img in imgs:
+        # Determine image clip values
+        imgMin, imgMax = image_clip_values(img, vmin=None, vmax=None, minPct=minPct, maxPct=maxPct)
+
+        # Append clip values to lists
+        imgMins.append(imgMin)
+        imgMaxs.append(imgMax)
+
+    # Determine overall min/max
+    imgMin = np.min(imgMins)
+    imgMax = np.max(imgMaxs)
+
+    # Report if requested
+    if verbose == True:
+        print('Data set min: {:f}\nData set max: {:f}'.format(imgMin, imgMax))
+
+    return imgMin, imgMax
+
+
 def image_histogram(img, mask=None, bins=128):
     '''
     Compute and show the histogram of image values.
@@ -154,7 +189,7 @@ def equalize_image(img):
 
 
 
-### PLOTTING ---
+### RASTERS ---
 
 # >>>>>>
 def plot_raster(img, mask=None, extent=None,
@@ -174,9 +209,8 @@ def plot_raster(img, mask=None, extent=None,
         # Retrieve image
         img = img.GetRasterBand(1).ReadAsArray()
 
-    # Spawn figure and axis if not given
-    if fig is None and ax is None:
-        fig, ax = plt.subplots()
+    # Replace NaNs with zeros
+    img[np.isnan(img) == 1] = 0
 
     # Equalize if requested
     if equalize == True:
@@ -189,11 +223,23 @@ def plot_raster(img, mask=None, extent=None,
     # Determine clipping values
     vmin, vmax = image_clip_values(img, vmin, vmax, minPct, maxPct)
 
+    # Spawn figure and axis if not given
+    if fig is None and ax is None:
+        fig, ax = plt.subplots()
+
     # Plot image
     cax = ax.imshow(img, extent=extent,
         cmap=cmap, vmin=vmin, vmax=vmax)
 
     # Colorbar
+    if cbarOrient == 'auto':
+        # Orient colorbar based on image dimensions
+        M, N = img.shape
+        if M > N:
+            cbarOrient = 'vertical'
+        elif N >= M:
+            cbarOrient = 'horizontal'
+
     if cbarOrient is not None and equalize is False:
         fig.colorbar(cax, ax=ax, orientation=cbarOrient)
 
@@ -206,7 +252,7 @@ def raster_multiplot(imgs, mrows=1, ncols=1,
         cmap='viridis', cbarOrient=None,
         vmin=None, vmax=None, minPct=None, maxPct=None,
         titles=None, suptitle=None,
-        fig=None, ax=None):
+        fig=None, axes=None):
     '''
     Plot multiple raster data sets.
 
@@ -220,8 +266,10 @@ def raster_multiplot(imgs, mrows=1, ncols=1,
         assert len(titles) == len(imgs), \
             'Number of titles must equal the number of images or constitute a single supertitle'
 
-    # Spawn initial figure
-    fig, axes = plt.subplots(nrows=mrows, ncols=ncols)
+    # Spawn figure and axis if not given
+    if fig is None and axes is None:
+        fig, axes = plt.subplots(nrows=mrows, ncols=ncols)
+    
     if mrows > 1: axes = [ax for row in axes for ax in row]
 
     # Loop through images to plot
@@ -259,16 +307,92 @@ def raster_multiplot(imgs, mrows=1, ncols=1,
 
 
 
+### HEAT MAPS ---
+def histogram2d(xData, yData, cmap='viridis', cbarOrient='horizontal', nbins=30, logDensity=False, fig=None, ax=None):
+    '''
+    Plot a 2D histogram of the 1D data sets xData and yData.
+    '''
+    # Construct histogram
+    H, xedges, yedges = np.histogram2d(xData, yData, bins=nbins)
+
+    # Format arrays
+    H = H.T  # transpose map
+    X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+
+    # Spawn figure and axis if not given
+    if fig is None and ax is None:
+        fig, ax = plt.subplots()
+
+    # Color normalization
+    if logDensity == True:
+        colorNorm = pltColors.LogNorm()
+    else:
+        colorNorm = None
+
+    # Plot histogram
+    cax = ax.pcolormesh(X, Y, H, cmap=cmap, norm=colorNorm, shading='gouraud')
+
+    # Format colorbar
+    fig.colorbar(cax, ax=ax, orientation=cbarOrient)
+
+
+def kde2d(xData, yData, plotType='pcolormesh', cmap='viridis', cbarOrient='horizontal',
+        nbins=30, logDensity=False, fig=None, ax=None):
+    '''
+    Plot a 2D kernel density estimate of the 1D data sets xData and yData.
+    Different plot types are available, including 'pcolormesh', 'contour',
+     and 'contourf'.
+    '''
+    # Construct grid
+    x = np.linspace(xData.min(), xData.max(), nbins)
+    y = np.linspace(yData.min(), yData.max(), nbins)
+    X, Y = np.meshgrid(x, y)
+
+    # Construct KDE
+    positions = np.vstack([X.flatten(), Y.flatten()])
+    values = np.vstack([xData, yData])
+    kernel = gaussian_kde(values)
+    H = kernel(positions)
+    H = H.reshape(X.shape)
+
+    # Spawn figure and axis if not given
+    if fig is None and ax is None:
+        fig, ax = plt.subplots()
+
+    # Color normalization
+    if logDensity == True:
+        colorNorm = pltColors.LogNorm()
+    else:
+        colorNorm = None
+
+    # Plot KDE
+    if plotType == 'pcolormesh':
+        # Plot KDE only
+        cax = ax.pcolormesh(X, Y, H, cmap=cmap, norm=colorNorm)
+
+    elif plotType == 'contour':
+        # Plot unfilled contours
+        cax = ax.contour(X, Y, H, cmap=cmap, norm=colorNorm)
+
+    elif plotType == 'contourf':
+        # Plot filled contours
+        cax = ax.contourf(X, Y, H, cmap=cmap, norm=colorNorm)
+
+    # Format colorbar
+    fig.colorbar(cax, ax=ax, orientation=cbarOrient)
+
+
+
 ### VECTORS ---
 def plot_look_vectors(Px, Py, Pz):
     '''
     Plot look vectors based on ARIA or ISCE convention.
     '''
-    # Spawn figure
-    fig, [axInc, axAz] = plt.subplots(ncols=2)
-
     # Horizontal component
     Ph = np.linalg.norm([Px, Py])
+
+    # Spawn figure
+    fig, [axInc, axAz] = plt.subplots(ncols=2)
 
     # Plot incidence
     axInc.quiver(0, 0, Ph*np.sign(Px), Pz, color='k', units='xy', scale=1, zorder=2)

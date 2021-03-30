@@ -3,6 +3,8 @@ SHORT DESCRIPTION
 Fit various functions, including 1D signals, planes, etc.
 
 FUTURE IMPROVEMENTS
+    * PCA
+    * K-means clustering
 
 TESTING STATUS
 Tested.
@@ -13,6 +15,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 from scipy import optimize
+
+
+### DATE FORMATTING ---
+def dates_to_datetimes(dates, datestr='%Y%m%d', verbose=False):
+    '''
+    Convert a list of date strings to datetime objects.
+    '''
+    if verbose == True:
+        print('Converting {:d} dates to datetimes with format {:s}'.format(len(dates), datestr))
+
+    # Convert to datetimes
+    datetimes = [dt.datetime.strptime(date, datestr) for date in dates]
+
+    return datetimes
+
+
+def time_since_reference(datetimes, refDate=None, verbose=False):
+    '''
+    Find the time difference in days between each date and the reference time.
+    '''
+    # Determine reference date
+    if refDate is None: refDate = datetimes[0]
+
+    # Calculate time differences
+    timedeltas = [(datetime-refDate).days/365.25 for datetime in datetimes]
+
+    return timedeltas
+
 
 
 ### TIMESERIES FITTING ---
@@ -132,6 +162,14 @@ def fit_atan(x, y, initial=None, verbose=False, plot=False):
 
 
 
+### PRINCIPAL COMPONENT ANALYSIS ---
+
+
+
+### K-MEANS CLUSTER ANALYSIS ---
+
+
+
 ### SURFACE FITTING ---
 def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, plot=False):
     '''
@@ -201,31 +239,3 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
         ax.set_title('Surface')
 
     return surface, B
-
-
-
-### MISCELLANEOUS ---
-def dates_to_datetimes(dates, datestr='%Y%m%d', verbose=False):
-    '''
-    Convert a list of date strings to datetime objects.
-    '''
-    if verbose == True:
-        print('Converting {:d} dates to datetimes with format {:s}'.format(len(dates), datestr))
-
-    # Convert to datetimes
-    datetimes = [dt.datetime.strptime(date, datestr) for date in dates]
-
-    return datetimes
-
-
-def time_since_reference(datetimes, refDate=None, verbose=False):
-    '''
-    Find the time difference in days between each date and the reference time.
-    '''
-    # Determine reference date
-    if refDate is None: refDate = datetimes[0]
-
-    # Calculate time differences
-    timedeltas = [(datetime-refDate).days/365.25 for datetime in datetimes]
-
-    return timedeltas
