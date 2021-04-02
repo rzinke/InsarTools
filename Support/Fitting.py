@@ -239,3 +239,138 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
         ax.set_title('Surface')
 
     return surface, B
+
+
+
+### VELOCITY MAP ---
+class velocity_from_timeseries:
+    def __init__(self, disps, times, mask=None, fitType='linear', verbose=False):
+        '''
+        Compute velocity maps from a displacement timeseries.
+
+        INPUTS
+            disps is a nEpochs x M x N numpy array of displacement values
+            times is a nEpochs-length list of datetime time deltas
+        '''
+        # Parameters
+        self.verbose = verbose
+        self.nEpochs, self.M, self.N = disps.shape
+
+        # Check inputs
+        assert self.nEpochs == len(times), 'Number of displacement epochs must equal number of times.'
+
+        # Check fit type and determine function
+        self.__format_fit_type__(fitType)
+
+        # Build design matrix
+        self.__build_design_matrix__(times)
+
+        # Invert design matrix
+        self.__invert_design_matrix__()
+
+        # Compute velocities
+        self.__compute_velocities__(disps)
+
+
+    def __format_fit_type__(self, fitType):
+        '''
+        Check and format the type of fit to apply.
+        '''
+        # Lower case
+        fitType = fitType.lower()
+
+        # Check that type is recognized
+        assert fitType in ['linear', 'seasonal'], \
+            'Fit type {:s} is not valid, use \'linear\' or \'seasonal\''.format(fitType)
+
+        # Record value
+        self.fitType = fitType
+
+        # List of map components
+        if self.fitType == 'linear':
+            self.componentsList = ['offsetMap', 'velocityMap', 'residualMap']
+        elif self.fitType == 'seasonal':
+            self.componentsList = ['offsetMap', 'velocityMap', 'sineAmpMap', 'sinePhaseMap', 'residualMap']
+
+
+    def __build_design_matrix__(self, times):
+        '''
+        Create the design matrix based on the fit type.
+        First component is always offset; second is always linear velocity.
+        '''
+        # For linear fit
+        if self.fitType == 'linear':
+            # Formulate design matrix
+            self.G = np.ones((self.nEpochs, 2))
+            self.G[:,1] = times.flatten()
+
+        # For seasonal fit
+        elif self.fitType == 'seasonal':
+            # Frequency
+            freq = 1  # per year
+
+            # Formulate design matrix
+            self.G = np.ones((self.nEpochs, 4))
+            self.G[:,1] = times.flatten()
+            self.G[:,2] = np.sin(2*np.pi*freq*times).flatten()
+            self.G[:,3] = np.cos(2*np.pi*freq*times).flatten()
+
+
+    def __invert_design_matrix__(self):
+        '''
+        Invert the design matrix based on the fit type.
+        Ideally only do this once.
+        '''
+        # Invert design matrix
+        self.inverseMatrix = np.linalg.inv(np.dot(self.G.T, self.G)).dot(self.G.T)
+
+
+    def __find_velocity_components__(self, displacements):
+        '''
+        Solve for the beta vector by taking the dot product Ginv.displacements.
+        The second term in the beta vector is the linear component.
+
+        Feed this through a loop to parallelize.
+        '''
+        B = self.inverseMatrix.dot(displacements)
+
+        return B
+
+
+    def __compute_velocities__(self, disps):
+        '''
+        Solve for velocities using the given fit type.
+        '''
+        if self.verbose == True:
+            print('Computing velocity with fit type: {:s}'.format(self.fitType))
+
+        # Setup
+        solutions = []
+        self.offsetMap   = np.zeros((self.M, self.N))
+        self.velocityMap = np.zeros((self.M, self.N))
+        self.sineAmpMap     = np.zeros((self.M, self.N))
+        self.sinePhaseMap   = np.zeros((self.M, self.N))
+        self.residualMap = np.zeros((self.M, self.N))
+
+        # Loop through each pixel
+        for i in range(self.M):
+            for j in range(self.N):
+                # Recall displacements
+                pxDisps = disps[:,i,j]
+
+                # Solve for component scaling factors
+                B = self.__find_velocity_components__(pxDisps)
+
+                # Store linear solutions
+                self.offsetMap[i,j] = B[0]
+                self.velocityMap[i,j] = B[1]
+                if self.fitType == 'seasonal':
+                    # Sinusoid amplitude
+                    self.sineAmpMap[i,j] = np.sqrt(B[2]**2 + B[3]**2)
+
+                    # Sinusoid phase
+                    self.sinePhaseMap[i,j] = np.arctan2(B[3], B[2])
+
+                # Compute and store residuals
+                residuals = pxDisps - self.G.dot(B)
+                self.residualMap[i,j] = np.sqrt(np.mean(residuals**2))

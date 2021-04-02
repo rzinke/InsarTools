@@ -4,7 +4,7 @@ SHORT DESCRIPTION
 Compare two rasters.
 
 FUTURE IMPROVEMENTS
-    * Multiple inputs
+    * Multiple analysis inputs
     * K-means clustering
 
 TESTING STATUS
@@ -115,6 +115,10 @@ class MapComparison:
         DSs = list(DSs.values())
         self.mainImg = DSs[0].GetRasterBand(1).ReadAsArray()
         self.secImg = DSs[1].GetRasterBand(1).ReadAsArray()
+
+        # Remove NaNs
+        self.mainImg[np.isnan(self.mainImg)==1] = 0
+        self.secImg[np.isnan(self.secImg)==1] = 0
 
         # Record data set geographic properties
         self.M, self.N = DSs[0].RasterYSize, DSs[0].RasterXSize

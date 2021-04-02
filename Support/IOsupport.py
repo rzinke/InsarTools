@@ -218,6 +218,9 @@ def save_gdal_dataset(outName, imgs, mask=None, exDS=None, proj=None, tnsf=None,
     if proj is None:
         assert exDS is not None, 'Geographic projection or example data set must be provided'
         proj = exDS.GetProjection()
+    elif proj == 'WGS84':
+        proj = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]'
+
     if tnsf is None:
         assert exDS is not None, 'Geographic transform or example data set must be provided'
         tnsf = exDS.GetGeoTransform()

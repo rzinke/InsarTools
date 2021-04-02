@@ -4,8 +4,6 @@ SHORT DESCRIPTION
 View Relax displacement outputs.
 
 FUTURE IMPROVEMENTS
-    * Project into LOS
-    * Consistent color scale
     * Zoom in on fault
 
 TESTING STATUS

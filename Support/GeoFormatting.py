@@ -302,6 +302,22 @@ def get_mintpy_reference_point(DSname, verbose=False):
     return refLon, refLat
 
 
+def get_mintpy_reference_pixel(DSname, verbose=False):
+    '''
+    Retrieve the reference point in pixel coordinates from a MintPy data set.
+    '''
+    # Load attributes
+    with h5py.File(DSname, 'r') as DS:
+        refX = int(DS.attrs['REF_X'][:])
+        refY = int(DS.attrs['REF_Y'][:])
+
+    # Report if requested
+    if verbose == True:
+        print('Reference point: X {:d}, Y {:d}'.format(refX, refY))
+
+    return refX, refY
+
+
 def get_mintpy_transform(DSname, verbose=False):
     '''
     Retrieve and parse the geographic metadata of a MintPy data set.

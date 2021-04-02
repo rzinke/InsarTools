@@ -47,7 +47,7 @@ def createParser():
         help='Output name.')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
-    OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true', 
+    OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true',
         help='Plot inputs and outputs.')
     return parser
 
@@ -58,28 +58,16 @@ def cmdParser(iargs = None):
 
 
 ### TIDE MAP ---
-class create_tide_map:
-    def __init__(self, dsName, date, time, outName, verbose=False):
+class tideMapCreator:
+    def __init__(self, verbose=False):
         '''
         Create one or more tide maps using GMT 6's earthtide functionality.
         '''
         # Parameters
         self.verbose = verbose
 
-        # Extract spatial parameters from data set
-        self.__get_spatial_data__(dsName)
 
-        # Format date and time
-        self.__format_date_time__(date, time)
-
-        # Format outname
-        self.__format_outname__(outName)
-
-        # Create tide maps
-        self.__create_tide_maps__()
-
-
-    def __get_spatial_data__(self, dsName):
+    def geographic_from_file(self, dsName):
         '''
         Retrieve the necessary spatial information (bounds and resolution) from
          the specified GDAL-compatible data set.
@@ -92,13 +80,51 @@ class create_tide_map:
         M, N = get_raster_size(DS)
 
         # Parse geographic info
-        geo = parse_transform(tnsf, M, N, verbose=inps.verbose)
+        self.geo = parse_transform(tnsf, M, N, verbose=inps.verbose)
 
+
+    def specify_metadata(self, tnsf, M, N):
+        '''
+        Provide the geographic transform and input image size.
+        '''
+        # Parse geographic info
+        self.geo = parse_transform(tnsf, M, N, verbose=inps.verbose)
+
+
+    def specify_extent(self, left, right, bottom, top, dx):
+        '''
+        Manually provide the geographic extent.
+        '''
+        self.geo = {'left': left, 'right': right, 'bottom': bottom, 'top': top}
+
+
+    def create_tide_map(self, date, time, outName):
+        '''
+        Carry out the sequence to create a solid Earth tide map for the given
+         date and time.
+        '''
+        # Format spatial data
+        self.__format_spatial_data__()
+
+        # Format date and time
+        self.__format_date_time__(date, time)
+
+        # Format output name
+        self.__format_outname__(outName)
+
+        # Create solid Earth tide map
+        self.__create_tide_maps__()
+
+
+    def __format_spatial_data__(self):
+        '''
+        Format the necessary spatial information.
+        '''
         # Format geo string
-        self.geoStr = '{left:f}/{right:f}/{bottom:f}/{top:f}'.format(**geo.__dict__)
+        self.geoStr = '{left:f}/{right:f}/{bottom:f}/{top:f}'.format(**self.geo.__dict__)
 
         # Format resolution string
-        self.resStr = '{:f}'.format(geo.dx)
+        self.resStr = '{:f}'.format(self.geo.dx)
 
         # Report if requested
         if self.verbose == True:
@@ -188,10 +214,15 @@ if __name__ == '__main__':
 
 
     ## Tide maps
-    tideMap = create_tide_map(dsName=inps.dsName,
-        date=inps.date, time=inps.time,
-        outName=inps.outName,
-        verbose=inps.verbose)
+    # Instantiate object
+    tideMap = tideMapCreator(verbose=inps.verbose)
+
+    # Geographic information from file
+    tideMap.geographic_from_file(dsName=inps.dsName)
+
+    # Create tide map
+    tideMap.create_tide_map(date=inps.date, time=inps.time,
+        outName=inps.outName)
 
     # Plot if requested
     if inps.plot == True:
