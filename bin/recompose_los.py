@@ -51,6 +51,8 @@ def createParser():
         help='Arguments for masking values/maps. ([None]).')
     InputArgs.add_argument('-n','--n-components', dest='nComponents', type=int, default=2,
         help='Number of displacement components for which to solve ([2], 3).')
+    InputArgs.add_argument('--max-cpus', dest='maxCPUs', type=int, default=8,
+        help='Maximum number of CPUs to use (1, 2, ..., [8], ...).')
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-o','--outName', dest='outName', type=str, default='Out', 
@@ -71,7 +73,8 @@ def cmdParser(iargs = None):
 
 ### RECOMPOSITION CLASS ---
 class LOSrecomposition:
-    def __init__(self, convention, imgFiles, incFiles, azFiles, geomFiles, maskArgs=[], nComponents=2, verbose=False):
+    def __init__(self, convention, imgFiles, incFiles, azFiles, geomFiles, maskArgs=[], nComponents=2, maxCPUs=8,
+        verbose=False):
         '''
         Use the satellite geometry files and LOS values to "recompose" the
          EW, (NS,) and vertical components of motion.
@@ -79,6 +82,7 @@ class LOSrecomposition:
         # Parameters
         self.convention = convention.lower()
         self.nComponents = nComponents
+        self.maxCPUs = maxCPUs
         self.verbose = verbose
 
         # Check that inputs are consistent
@@ -316,7 +320,9 @@ class LOSrecomposition:
 
         # Compute displacement/velocity components
         self.Uhat = invert_from_los(self.phs, self.Px, self.Py, self.Pz,
+            mask=self.mask,
             nComponents=self.nComponents,
+            maxCPUs=self.maxCPUs,
             verbose=self.verbose)
 
         # Reformat components into list
@@ -406,6 +412,7 @@ if __name__ == '__main__':
         incFiles=inps.incFiles, azFiles=inps.azFiles, geomFiles=inps.geomFiles,
         maskArgs=inps.maskArgs,
         nComponents=inps.nComponents,
+        maxCPUs=inps.maxCPUs,
         verbose=inps.verbose)
 
     # Plot inputs if requested

@@ -235,7 +235,7 @@ def parse_isce_los(ISCEdataset, verbose=False):
 
 
 ### RECOMPOSITION ---
-def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, verbose=False):
+def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, maxCPUs=8, verbose=False):
     '''
     "Recompose" an observed signal (e.g., displacement or velocity) based on
      two or more lines of sight, following Wright et al. (2004).
@@ -286,7 +286,7 @@ def invert_from_los(los, Px, Py, Pz, mask=None, nComponents=2, verbose=False):
     # Invert for displacement
     if verbose == True: print('... solving for components')
 
-    uhat = solve_los_for_components(Pmatrices, los)
+    uhat = solve_los_for_components(Pmatrices, los, mask=mask, maxCPUs=maxCPUs)
 
     # Reformat estimated displacement
     Uhat = np.zeros((nComponents, M*N))  # empty array
@@ -383,7 +383,7 @@ def create_3comp_pointing_matrices(Px, Py, Pz):
     return Pmatrices
 
 
-def solve_los_for_components(Pmatrices, los, mask=None):
+def solve_los_for_components(Pmatrices, los, mask=None, maxCPUs=8):
     '''
     Estimate displacement given the pointing vectors in Pmatrices, and the LOS
      displacement vectors in los.
@@ -404,7 +404,8 @@ def solve_los_for_components(Pmatrices, los, mask=None):
     LOSobs = list(zip(Pmatrices, los))
 
     # Initialize parallelization
-    pool = mp.Pool(mp.cpu_count())
+    CPUs = min([maxCPUs, mp.cpu_count()])  # number CPUs to use
+    pool = mp.Pool(CPUs)  # instantiate pool
 
     # Invert for parameters
     uhat = pool.map(invert_for_components, [Pl for Pl in LOSobs])
