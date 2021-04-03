@@ -73,6 +73,9 @@ def createParser():
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true', 
         help='Verbose mode.')
+    OutputArgs.add_argument('-p','--plot', dest='plot', action='store_true', 
+        help='Plot outputs.')
+
     return parser
 
 
@@ -160,11 +163,13 @@ class MapComparison:
         # Report difference
         if self.verbose == True:
             difference = self.secData - self.mainData
+            medianDiff = np.median(difference)
             meanDiff = np.mean(difference)
             meanAbsDiff = np.mean(np.abs(difference))
             RMS = np.sqrt(np.mean(difference**2))
 
             print('Differences (secondary - main)')
+            print('\tMedian difference:   {:f}'.format(medianDiff))
             print('\tMean difference:     {:f}'.format(meanDiff))
             print('\tMean abs difference: {:f}'.format(meanAbsDiff))
             print('\tRMS difference:      {:f}'.format(RMS))
@@ -528,15 +533,15 @@ if __name__ == '__main__':
 
 
     ## Plotting
-    # Plot maps
-    compare.plot_maps(cmap=inps.cmap, cbarOrient=inps.cbarOrient,
-        minPct=inps.minPct, maxPct=inps.maxPct)
+    if inps.plot == True:
+        # Plot maps
+        compare.plot_maps(cmap=inps.cmap, cbarOrient=inps.cbarOrient,
+            minPct=inps.minPct, maxPct=inps.maxPct)
 
-    # Plot data
-    compare.plot_data(plotType=inps.plotType, dsFactor=inps.dsFactor, nbins=inps.nbins, logDensity=inps.logDensity)
+        # Plot data
+        compare.plot_data(plotType=inps.plotType, dsFactor=inps.dsFactor, nbins=inps.nbins, logDensity=inps.logDensity)
 
-    # Plot analysis
-    compare.plot_analysis()
+        # Plot analysis
+        compare.plot_analysis()
 
-
-    plt.show()
+        plt.show()

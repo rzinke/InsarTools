@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     ## Save data set
     # Checks
-    outName = confirm_outname_ext(inps.outName)  # confirm output extension
+    outName = confirm_outname_ext(inps.outName, ['tif'])  # confirm output extension
     confirm_outdir(outName)  # confirm output directory exists
 
     # Save data set

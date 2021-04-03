@@ -39,7 +39,7 @@ def createParser():
     InputArgs.add_argument('-a','--adjust', dest='adjust', action='store_true',
         help='Adjust subsequent maps to the first map.')
     InputArgs.add_argument('-e','--expectation', dest='expectation', type=str, default='median',
-        help='Expectation operator ([\'mean\'], \'median\')')
+        help='Expectation operator ([\'mean\'], \'median\', \'bridge\')')
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
     OutputArgs.add_argument('-v','--verbose', dest='verbose', action='store_true',

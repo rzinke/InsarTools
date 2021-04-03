@@ -36,7 +36,7 @@ def createParser():
         help='Incidence map filename.')
     InputArgs.add_argument('-m','--mask', dest='maskArgs', nargs='+', type=str, default=None,
         help='Arguments for masking values.')
-    InputArgs.add_argument('--to-LOS', dest='normalize', action='store_false',
+    InputArgs.add_argument('--to-los', dest='normalize', action='store_false',
         help='Project back into LOS (multiply by sin(incidence angle)).')
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
