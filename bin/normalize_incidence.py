@@ -124,7 +124,7 @@ def plot_datasets(inVelocity, incidence, outVelocity, mask, extent):
 
     # Plot normalized velocity field
     fig, axNorm = plot_raster(outVelocity, mask=mask, extent=extent,
-        cmap='jet', vmin=vmin, vmax=vmax, cbarOrient=cbarOrient,
+        cmap='jet', minPct=1, maxPct=99, cbarOrient=cbarOrient,
         fig=fig, ax=axNorm)
     axNorm.set_title('Normd. veloc.')
 

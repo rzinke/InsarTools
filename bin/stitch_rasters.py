@@ -19,7 +19,7 @@ from Masking import mask_datasets, find_mask_overlap
 from GeoFormatting import DS_to_extent
 from Checks import check_dataset_sizes
 from Viewing import image_percentiles, plot_raster
-from Fitting import fit_surface
+from Fitting import fit_surface_to_image
 
 
 ### PARSER ---
@@ -198,7 +198,7 @@ def bridge_images(primaryImg, secondaryImg, primaryMask, secondaryMask, expectat
     if verbose == True: print('fitting {:d}-degree polynomial'.format(degree))
 
     # Fit a surface
-    surface, B = fit_surface(primaryImg, primaryMask, degree, decimation=1, verbose=verbose)
+    surface, B = fit_surface_to_image(primaryImg, primaryMask, degree, decimation=1, verbose=verbose)
 
     # Subtract surface from secondary image
     D = surface - secondaryImg

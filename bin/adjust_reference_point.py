@@ -237,7 +237,8 @@ class adjust_ref_pt:
         lat = event.ydata
 
         # Convert to pixel values
-        px, py = lola_to_xy(self.tnsf, lon, lat, verbose=self.verbose)
+        px, py = lola_to_xy(self.tnsf, np.array(lon), np.array(lat), verbose=self.verbose)
+        px = px[0]; py = py[0]
 
         # Check that mask is not selected
         if self.mask[py,px] == 1:

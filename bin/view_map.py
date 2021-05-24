@@ -42,8 +42,8 @@ def createParser():
     DisplayArgs = parser.add_argument_group('DISPLAY PARAMS')
     DisplayArgs.add_argument('-c','--cmap', dest='cmap', type=str, default='viridis',
         help='Colormap ([viridis]).')
-    DisplayArgs.add_argument('-co','--colorbar-orientation', dest='cbarOrient', type=str, default='horizontal',
-        help='Colorbar orientation ([horizontal], vertical).')
+    DisplayArgs.add_argument('-co','--colorbar-orientation', dest='cbarOrient', type=str, default='auto',
+        help='Colorbar orientation ([auto], horizontal, vertical).')
     DisplayArgs.add_argument('-minPct','--min-percent', dest='minPct', type=float, default=None,
         help='Minimum percent clip value ([None]).')
     DisplayArgs.add_argument('-maxPct','--max-percent', dest='maxPct', type=float, default=None,

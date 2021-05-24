@@ -14,6 +14,7 @@ import numpy as np
 from osgeo import gdal
 from scipy.stats import mode
 from Checks import check_dataset_sizes
+from RasterResampling import gdal_resample
 
 
 
@@ -39,7 +40,7 @@ def detect_background(img, verbose=False):
 
 
 ### GENERATE MASK ---
-def create_mask(img, maskArgs, verbose=False):
+def create_mask(img, maskArgs, refBounds=None, refShape=None, verbose=False):
     '''
     Provide an image array, and one or more files or values to mask.
     Mask values come from the command line as string arguments.
@@ -56,9 +57,19 @@ def create_mask(img, maskArgs, verbose=False):
             if os.path.exists(maskArg):
                 '''
                 Assume map file.
+                If a reference boounds (refBounds) and map size (refSize) are 
+                 provided, resample the mask data set to the reference dimensions.
                 '''
                 # Open mask image
-                mskDS = open(maskArg, gdal.GA_ReadOnly)
+                mskDS = gdal.Open(maskArg, gdal.GA_ReadOnly)
+
+                # Resample if reference provided
+                if refBounds is not None and refShape is not None:
+                    assert len(refShape) == 2, \
+                        'Reference size must be provided as length-2 list (M, N)'
+                    
+                    mskDS = gdal_resample(mskDS, bounds=refBounds, M=refShape[0], N=refShape[1], verbose=verbose)
+
                 mskImg = mskDS.GetRasterBand(1).ReadAsArray()
 
                 # Apply to mask
@@ -132,6 +143,38 @@ def create_mask(img, maskArgs, verbose=False):
     return mask
 
 
+def mask_dataset(DS, maskArgs, refBounds=None, refShape=None, verbose=False):
+    '''
+    Mask a GDAL data set.
+    '''
+    if verbose == True: print('Masking data set')
+
+    # Retrieve image
+    img = DS.GetRasterBand(1).ReadAsArray()
+
+    # Create mask
+    mask = create_mask(img, maskArgs, refBounds=refBounds, refShape=refShape, verbose=verbose)
+
+    return mask
+
+
+def mask_datasets(datasets, maskArgs, refBounds=None, refShape=None, verbose=False):
+    '''
+    Generate masks for multiple GDAL data sets.
+    '''
+    if verbose == True: print('Generating masks for multiple data sets')
+
+    # Setup
+    masks = {}  # empty dictionary
+
+    # Loop through data sets
+    for dsName in datasets.keys():
+        masks[dsName] = mask_dataset(datasets[dsName], maskArgs, refBounds=refBounds, refShape=refShape,
+            verbose=verbose)
+
+    return masks
+
+
 def create_common_mask(datasets, maskArgs, verbose=False):
     '''
     Generate a common (conservative) mask for all data sets.
@@ -157,37 +200,6 @@ def create_common_mask(datasets, maskArgs, verbose=False):
         commonMask[mask==0] = 0
 
     return commonMask
-
-
-def mask_datasets(datasets, maskArgs, verbose=False):
-    '''
-    Generate masks for multiple GDAL data sets.
-    '''
-    if verbose == True: print('Generating masks for multiple data sets')
-
-    # Setup
-    masks = {}  # empty dictionary
-
-    # Loop through data sets
-    for dsName in datasets.keys():
-        masks[dsName] = mask_dataset(datasets[dsName], maskArgs, verbose=verbose)
-
-    return masks
-
-
-def mask_dataset(DS, maskArgs, verbose=False):
-    '''
-    Mask a GDAL data set.
-    '''
-    if verbose == True: print('Masking data set')
-
-    # Retrieve image
-    img = DS.GetRasterBand(1).ReadAsArray()
-
-    # Create mask
-    mask = create_mask(img, maskArgs, verbose=verbose)
-
-    return mask
 
 
 

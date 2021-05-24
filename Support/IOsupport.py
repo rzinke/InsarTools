@@ -141,12 +141,31 @@ def confirm_overwrite(fname):
 
 
 ### LOADING GDAL DATASETS ---
+def load_gdal_dataset(dsPath, verbose=False):
+    '''
+    Load data set using GDAL.
+    '''
+    if verbose == True: print('Loading data set')
+
+    # Check that data set path exists
+    check_exists(dsPath)
+
+    # Open GDAL data set
+    DS = gdal.Open(dsPath, gdal.GA_ReadOnly)
+
+    # Report if requested
+    if verbose == True: print('Loaded: {:s}'.format(dsPath))
+
+    return DS
+
+
 def load_gdal_datasets(dsPaths, dsNames=None, verbose=False):
     '''
     Provide a list of dataset names.
     Check that the files actually exist, then load into dictionary.
+    Returns a dictionary.
     '''
-    if verbose == True: print('Loading multiple data sets')
+    if verbose == True: print('Loading multiple GDAL data sets')
 
     # Create list of data set names if not already provided
     if dsNames is None:
@@ -179,22 +198,20 @@ def load_gdal_datasets(dsPaths, dsNames=None, verbose=False):
     return datasets
 
 
-def load_gdal_dataset(dsPath, verbose=False):
+def images_from_datasets(datasets, band=1, verbose=False):
     '''
-    Load data set using GDAL.
+    Retrieve the images from a list or dictionary of GDAL data sets.
     '''
-    if verbose == True: print('Loading data set')
+    if verbose == True: print('Retrieving images from data sets')
 
-    # Check that data set path exists
-    check_exists(dsPath)
+    # Setup
+    imgs = {}
 
-    # Open GDAL data set
-    DS = gdal.Open(dsPath, gdal.GA_ReadOnly)
+    # Loop through data sets
+    for dsName in datasets.keys():
+        imgs[dsName] = datasets[dsName].GetRasterBand(band).ReadAsArray()
 
-    # Report if requested
-    if verbose == True: print('Loaded: {:s}'.format(dsPath))
-
-    return DS
+    return imgs
 
 
 
@@ -338,6 +355,163 @@ def load_mintpy_geometry(geomName, verbose=False):
         print('Loaded MintPy geometry file')
         print('Parsed incidence and azimuth')
         print('Sizes: {:d} x {:d}'.format(*inc.shape))
+
+
+
+### GPS LOADING ---
+class GPSdata:
+    def __init__(self, verbose=False):
+        '''
+        Load, store, and format GPS data from text file.
+        '''
+        # Parameters
+        self.verbose = verbose
+
+
+    # Load data
+    def load_from_file(self, fname,
+        lonCol=0, latCol=1,
+        Ecol=None, Ncol=None, Vcol=None, DATAcol=None,
+        headerRows=0, delimiter=' '):
+        '''
+        Load data from file.
+        '''
+        if self.verbose == True: print('Loading GPS from file')
+
+        # Check file exists
+        check_exists(fname)
+
+        # Load GPS data from file
+        with open(fname, 'r') as gpsData:
+            # Read data and ignore header
+            lines = gpsData.readlines()
+            stations = lines[headerRows:]
+
+        # Reformat data list
+        stations = [station.strip('\n').split(delimiter) for station in stations]
+
+        # Parse data
+        Lon, Lat = [], []
+        E, N, V, data = [], [], [], []
+
+        # Parse coordinates
+        for station in stations:
+            Lon.append(station[lonCol])
+            Lat.append(station[latCol])
+
+        # Format into numpy arrays
+        self.lon = np.array(Lon, dtype=float)
+        self.lat = np.array(Lat, dtype=float)
+
+        # Empty displacement attributes
+        self.E = None
+        self.N = None
+        self.V = None
+        self.data = None
+
+        # Parse displacements
+        if Ecol is not None:
+            E = [station[Ecol] for station in stations]
+            self.E = np.array(E, dtype=float)
+
+        if Ncol is not None:
+            N = [station[Ncol] for station in stations]
+            self.N = np.array(N, dtype=float)
+
+        if Vcol is not None:
+            V = [station[Vcol] for station in stations]
+            self.V = np.array(V, dtype=float)
+
+        if DATAcol is not None:
+            data = [station[DATAcol] for station in stations]
+            self.data = np.array(data, dtype=float)
+
+
+    def assign_zero_vertical(self):
+        '''
+        Assign a value of zero for each displacement measurement.
+        '''
+        if self.verbose == True: print('Setting vertical values to 0')
+
+        # Check that same number of E and N measurements are provided
+        assert len(self.E) == len(self.N) > 0, 'East and North columns must be specified'
+
+        # Assign zeros
+        self.V = np.zeros(self.E.size)
+
+
+    def scale_by_factor(self, scaleFactor):
+        '''
+        Multiply all data values by the specified scale factor.
+        '''
+        if self.verbose == True: print('Scaling by factor: {:f}'.format(scaleFactor))
+
+        # Scale data
+        if self.E is not None: self.E *= scaleFactor
+        if self.N is not None: self.N *= scaleFactor
+        if self.V is not None: self.V *= scaleFactor
+        if self.data is not None: self.data *= scaleFactor
+
+
+    def compute_norms(self):
+        '''
+        Compute the norm of the GPS components.
+        '''
+        if self.verbose == True: print('Computing GPS displacement magnitudes')
+
+        # Ensure E, N, and V are all specified
+        assert self.E is not None, 'East component must be specified'
+        assert self.N is not None, 'North component must be specified'
+
+        if self.V is None:
+            self.assign_zero_vertical()
+
+        # Find magnitude of displacement
+        self.M = np.sqrt(self.E**2 + self.N**2 + self.V**2)
+
+
+    def crop_to_extent(self, west=None, east=None, south=None, north=None):
+        '''
+        Crop the data set to the given bounds.
+        '''
+        # Determine max bounds of data set
+        if west is None: west = self.lon.min()
+        if east is None: east = self.lon.max()
+        if south is None: south = self.lat.min()
+        if north is None: north = self.lat.max()
+
+        # Indices of stations to include
+        ndx = (self.lon >= west) & (self.lon <= east) & (self.lat >= south) & (self.lat <= north)
+
+        # Crop data set
+        self.crop_by_index(ndx)
+
+        # Report if requested
+        if self.verbose == True:
+            print('Cropped data set to W {:f}, E {:f}, S {:f}, N {:f}'.format(west, east, south, north))
+
+
+    def crop_by_index(self, ndx):
+        '''
+        Keep only the values marked "True" in the ndx boolean array.
+        '''
+        # Parameters
+        origLen = len(self.lon)
+
+        assert len(ndx) == origLen, \
+            'Index length ({:d}) must equal the number of stations ({:d})'.format(len(ndx), origLen)
+
+        # Crop data set
+        self.lon = self.lon[ndx]
+        self.lat = self.lat[ndx]
+        if self.E is not None: self.E = self.E[ndx]
+        if self.N is not None: self.N = self.N[ndx]
+        if self.V is not None: self.V = self.V[ndx]
+        if self.data is not None: self.data = self.data[ndx]
+
+        # Report if requested
+        if self. verbose == True:
+            print('Cropped by index. {:d}/{:d} values remain.'.format(len(self.lon), origLen))
 
 
 

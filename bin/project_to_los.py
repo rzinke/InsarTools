@@ -69,7 +69,7 @@ def cmdParser(iargs = None):
 
 
 
-### CHECKS ---
+### LOS PROJECTION ---
 class LOSproject:
     def __init__(self, convention, incInpt, azInpt, geomFile, Einpt, Ninpt, Vinpt, maskArgs=None, verbose=False):
         '''

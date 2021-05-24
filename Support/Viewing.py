@@ -56,7 +56,7 @@ def image_percentiles(img, minPct=1, maxPct=99, verbose=False):
     Find vmin and vmax for an image based on percentiles.
     '''
     # Determine if masked array
-    if type(img) == np.ma.array:
+    if type(img) in [np.ma.array, np.ma.core.MaskedArray]:
         img = img.compressed()
 
     # Flatten to 1D array
@@ -66,16 +66,20 @@ def image_percentiles(img, minPct=1, maxPct=99, verbose=False):
     vmin, vmax = np.percentile(img, (minPct, maxPct))
 
     # Report if requested
-    if verbose == True: print('Clipping image to {:.1f} and {:.1f} percentiles'.format(pctMin, pctMax))
+    if verbose == True: print('Clipping image to {:.1f} and {:.1f} percentiles'.format(minPct, maxPct))
 
     return vmin, vmax
 
 
-def image_clip_values(img, vmin, vmax, minPct, maxPct, verbose=False):
+def image_clip_values(img, vmin, vmax, minPct, maxPct, mask=None, verbose=False):
     '''
     Determine vmin and vmax for an image given clip values as percentiles or
      values.
     '''
+    # Apply mask if provided
+    if mask is not None:
+        img = np.ma.array(img, mask=(mask==0))
+
     # Determine clip values
     if minPct is not None or maxPct is not None:
         minClip, maxClip = image_percentiles(img, minPct, maxPct)
@@ -92,9 +96,10 @@ def image_clip_values(img, vmin, vmax, minPct, maxPct, verbose=False):
     return vmin, vmax
 
 
-def dataset_clip_values(imgs, minPct=0, maxPct=100, verbose=False):
+def dataset_clip_values(imgs, minPct=0, maxPct=100, masks=None, bounds='outer', verbose=False):
     '''
     Determine the vmin and vmax for a set of images provided as a list or dict.
+    'Outer' bounds gives min(min)/max(max); 'inner' bounds give max(min)/min(max)
     '''
     # Convert dictionary to list
     if type(imgs) == dict:
@@ -105,18 +110,26 @@ def dataset_clip_values(imgs, minPct=0, maxPct=100, verbose=False):
     # Empty lists of min/max values
     imgMins = []; imgMaxs = []
 
+    # Handle masking
+    if masks is None:
+        masks = [None]*len(imgs)
+
     # Loop through images
-    for img in imgs:
+    for i, img in enumerate(imgs):
         # Determine image clip values
-        imgMin, imgMax = image_clip_values(img, vmin=None, vmax=None, minPct=minPct, maxPct=maxPct)
+        imgMin, imgMax = image_clip_values(img, vmin=None, vmax=None, minPct=minPct, maxPct=maxPct, mask=masks[i])
 
         # Append clip values to lists
         imgMins.append(imgMin)
         imgMaxs.append(imgMax)
 
     # Determine overall min/max
-    imgMin = np.min(imgMins)
-    imgMax = np.max(imgMaxs)
+    if bounds == 'outer':
+        imgMin = np.min(imgMins)
+        imgMax = np.max(imgMaxs)
+    elif bounds == 'inner':
+        imgMin = np.max(imgMins)
+        imgMax = np.min(imgMins)
 
     # Report if requested
     if verbose == True:

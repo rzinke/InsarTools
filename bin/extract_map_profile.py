@@ -169,10 +169,13 @@ class mapProfile:
             print('Profile end: {:f}, {:f}'.format(self.endLon, self.endLat))
 
         # Convert to image coordinates
-        self.pxStart, self.pyStart = lola_to_xy(self.tnsf, self.startLon, self.startLat,
+        pxStart, pyStart = lola_to_xy(self.tnsf, np.array(self.startLon), np.array(self.startLat),
             verbose=self.verbose)
-        self.pxEnd, self.pyEnd = lola_to_xy(self.tnsf, self.endLon, self.endLat,
+        pxEnd, pyEnd = lola_to_xy(self.tnsf, np.array(self.endLon), np.array(self.endLat),
             verbose=self.verbose)
+
+        self.pxStart = pxStart[0]; self.pyStart = pyStart[0]
+        self.pxEnd = pxEnd[0]; self.pyEnd = pyEnd[0]
 
         # Check that queried coordinates are within bounds
         assert min([self.pxStart, self.pyStart, self.pxEnd, self.pyEnd]) >= 0, \

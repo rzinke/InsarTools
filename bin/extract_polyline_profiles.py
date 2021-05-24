@@ -143,13 +143,21 @@ class polylineProfiles:
         self.profPts = []
 
         for profGeom in self.profGeoms:
+            # Profile start and end points
+            xStart = np.array(profGeom.profStart[0])
+            yStart = np.array(profGeom.profStart[1])
+
+            xEnd = np.array(profGeom.profEnd[0])
+            yEnd = np.array(profGeom.profEnd[1])
+
             # Convert to pixel coordinates
-            pxStart, pyStart = lola_to_xy(self.tnsf, *profGeom.profStart)
-            pxEnd, pyEnd = lola_to_xy(self.tnsf, *profGeom.profEnd)
+            pxStart, pyStart = lola_to_xy(self.tnsf, xStart, yStart)
+            pxEnd, pyEnd = lola_to_xy(self.tnsf, xEnd, yEnd)
 
             # Extract profiles
             pxDist, profPts = extract_profile(self.img,
-                pxStart=pxStart, pyStart=pyStart, pxEnd=pxEnd, pyEnd=pyEnd,
+                pxStart=pxStart[0], pyStart=pyStart[0],
+                pxEnd=pxEnd[0], pyEnd=pyEnd[0],
                 pxWidth=self.profWidth/self.tnsf[1],
                 mask=self.mask,
                 verbose=self.verbose)

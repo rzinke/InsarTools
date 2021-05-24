@@ -13,7 +13,7 @@ Tested.
 import os
 import argparse
 import matplotlib.pyplot as plt
-from IOsupport import rel_to_abs_paths, load_gdal_datasets, append_fname, save_gdal_dataset
+from IOsupport import confirm_outdir, rel_to_abs_paths, load_gdal_datasets, append_fname, save_gdal_dataset
 from RasterResampling import match_rasters
 from Checks import check_dataset_sizes
 from Masking import mask_datasets
@@ -77,6 +77,9 @@ def format_outnames(inNames, prefix, verbose=False):
 
         # Append to list
         outNames.append(outName)
+
+    # Confirm output directory
+    confirm_outdir(outNames[0])
 
     return outNames
 

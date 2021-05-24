@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from IOsupport import load_gdal_dataset, confirm_outname_ext, save_gdal_dataset
 from Masking import create_mask
-from Fitting import fit_surface
+from Fitting import fit_surface_to_image
 from GeoFormatting import DS_to_extent
 from Viewing import image_percentiles
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     if inps.verbose == True: print('*'*32)
 
     # Fit surface
-    ramp, B = fit_surface(img, mask, inps.degree, dx=dx, dy=dy, decimation=inps.decimation,
+    ramp, B = fit_surface_to_image(img, mask, inps.degree, dx=dx, dy=dy, decimation=inps.decimation,
         verbose=inps.verbose)
 
 

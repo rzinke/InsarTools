@@ -5,6 +5,7 @@ Fit various functions, including 1D signals, planes, etc.
 FUTURE IMPROVEMENTS
     * PCA
     * K-means clustering
+    * exponential
 
 TESTING STATUS
 Tested.
@@ -171,7 +172,105 @@ def fit_atan(x, y, initial=None, verbose=False, plot=False):
 
 
 ### SURFACE FITTING ---
-def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, plot=False):
+def design_matrix2d(x, y, degree, verbose=False):
+    '''
+    Build a design matrix for a set of points that vary in x and y.
+    '''
+    if verbose == True: print('Building design matrix')
+
+    # Parameters
+    nx = len(x)
+    ny = len(y)
+    assert nx == ny, \
+        'Length of x ({:d}) and y({:d}) must be the same'.format(nx, ny)
+    n = nx  # number of data points
+
+    # Design matrix - depends on polynomial degree
+    G = np.ones((n, 1+2*degree))  # empty design matrix
+    for i in range(1, degree+1):
+        # Populate design matrix
+        G[:,2*i-1] = x**i
+        G[:,2*i] = y**i
+
+    return G
+
+
+def fit_surface_to_points(x, y, z, degree=1, verbose=False):
+    '''
+    Fit a n-degree polynomial to the given points.
+    x, y, and z are 1D arrays.
+    '''
+    if verbose == True: print('Fitting surface to points')
+
+    # Design matrix
+    G = design_matrix2d(x, y, degree=degree, verbose=verbose)
+
+    # Plane fit parameters
+    B = np.linalg.inv(np.dot(G.T, G)).dot(G.T).dot(z)
+
+    # Reconstruct z
+    zhat = G.dot(B)
+
+    # Compute residuals
+    res = z - zhat  # residuals
+    rms = np.sqrt(np.mean(res**2))
+
+    # Report if requested
+    if verbose == True:
+        B = B.flatten()
+        print('Polynomial fit')
+        print('Order: {:d}'.format(degree))
+        print('\toffset: {:f}'.format(B[0]))
+        [print('\tX^{i:d} {X:f} Y^{i:d} {Y:f}'.format(**{'i':i, 'X':B[2*i-1], 'Y':B[2*i]})) \
+            for i in range(1, degree+1)]
+        print('RMS residual: {:f}'.format(rms))
+
+    return zhat, B
+
+
+def fit_surface_to_points_weighted(x, y, z, weights, degree=1, verbose=False):
+    '''
+    Fit a n-degree polynomial to the given points.
+    x, y, z, and weights are 1D arrays.
+    '''
+    if verbose == True: print('Fitting surface to points (with weighting)')
+
+    # Check inputs
+    assert len(x) == len(y) == len(z) == len(weights), 'Input lengths not the same'
+    n = len(z)  # number of data points
+
+    # Design matrix
+    G = design_matrix2d(x, y, degree=degree, verbose=verbose)
+
+    # Weighting matrix
+    W = np.identity(n)
+    for i in range(n):
+        W[i,i] = weights[i]
+
+    # Plane fit parameters
+    B = np.linalg.inv(G.T.dot(W).dot(G)).dot(G.T).dot(W).dot(z)
+
+    # Reconstruct z
+    zhat = G.dot(B)
+
+    # Compute residuals
+    res = z - zhat  # residuals
+    rms = np.sqrt(np.mean(res**2))
+
+    # Report if requested
+    if verbose == True:
+        B = B.flatten()
+        print('Polynomial fit')
+        print('Order: {:d}'.format(degree))
+        print('\toffset: {:f}'.format(B[0]))
+        [print('\tX^{i:d} {X:f} Y^{i:d} {Y:f}'.format(**{'i':i, 'X':B[2*i-1], 'Y':B[2*i]})) \
+            for i in range(1, degree+1)]
+        print('RMS residual: {:f}'.format(rms))
+
+    return zhat, B
+
+
+def fit_surface_to_image(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False):
     '''
     Fit a n-degree polynomial to the image data set.
     Exclude mask values. Decimate by 10^[decimation].
@@ -194,11 +293,7 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
     X, Y = np.meshgrid(x, y)
 
     # Design matrix - depends on polynomial degree
-    G = np.ones((MN, 1+2*degree))  # empty design matrix
-    for i in range(1, degree+1):
-        # Populate design matrix
-        G[:,2*i-1] = X.flatten()**i
-        G[:,2*i] = Y.flatten()**i
+    G = design_matrix2d(X.flatten(), Y.flatten(), degree=degree, verbose=verbose)
 
     # Reduce data to valid data points
     nds = mask.flatten()==1  # non-masked indices
@@ -219,8 +314,7 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
     res = img - surface  # residuals
     res = np.ma.array(res, mask=(mask==0))  # mask residuals
     res = res.compressed().flatten()  # use only valid residuals
-    RSS = np.sqrt(np.sum(res**2))  # root sum of squares
-    expRes = RSS/len(res)  # mean residual
+    rms = np.sqrt(np.mean(res**2))  # root sum of squares
 
     # Report if requested
     if verbose == True:
@@ -230,13 +324,7 @@ def fit_surface(img, mask, degree=1, dx=1, dy=1, decimation=0, verbose=False, pl
         print('\toffset: {:f}'.format(B[0]))
         [print('\tX^{i:d} {X:f} Y^{i:d} {Y:f}'.format(**{'i':i, 'X':B[2*i-1], 'Y':B[2*i]})) \
             for i in range(1, degree+1)]
-        print('Expected residual: {:f}'.format(expRes))
-
-    # Plot if requested
-    if plot == True:
-        fig, ax = plt.subplots()
-        ax.imshow(surface)
-        ax.set_title('Surface')
+        print('RMS residual: {:f}'.format(rms))
 
     return surface, B
 

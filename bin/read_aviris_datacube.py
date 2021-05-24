@@ -93,6 +93,7 @@ class AVIRISanalysis:
 
         # Loop though bands
         self.nBands = DS.RasterCount  # number of bands
+        self.wavelengths = np.linspace(400, 2500, self.nBands)
         self.bands = []  # empty list of bands
 
         if self.verbose == True: print('Loading {:d} bands'.format(self.nBands))
@@ -209,8 +210,6 @@ class AVIRISanalysis:
         # Spawn figure
         fig, ax = plt.subplots()
 
-        wavelengths = np.linspace(400, 2500, self.nBands)
-
         # Loop through each spectrum in the queries list
         for ptNb in self.queriedPoints.keys():
             # Recall pixel location
@@ -222,7 +221,7 @@ class AVIRISanalysis:
             spectrum = self.__retrieve_spectrum__(px, py)
 
             # Plot spectrum
-            ax.semilogy(wavelengths, spectrum, label='{:d}'.format(ptNb))
+            ax.semilogy(self.wavelengths, spectrum, label='{:d}'.format(ptNb))
 
         # Format plot
         ax.legend()
@@ -248,7 +247,7 @@ class AVIRISanalysis:
         # Setup
         legend = '# Lat, Lon, px, py\n'
         metadata = '{:.6f}, {:.6f}, {:d}, {:d}\n'
-        dataFmt = '{:.6f}\n'
+        dataFmt = '{:.6f} {:.6f}\n'
 
         # Loop through each profile in the queries list
         for ptNb in self.queriedPoints.keys():
@@ -270,9 +269,10 @@ class AVIRISanalysis:
                 # Write legend and metadata to header
                 outFile.write(legend)
                 outFile.write(metadata.format(lat, lon, px, py))
+                outFile.write('wavelength intensity\n')
 
                 # Write timeseries data to file
-                [outFile.write(dataFmt.format(spectrum[i])) for i in range(self.nBands)]
+                [outFile.write(dataFmt.format(self.wavelengths[i], spectrum[i])) for i in range(self.nBands)]
 
             # Report if requested
             if self.verbose == True: print('Spectrum saved to: {:s}'.format(saveName))

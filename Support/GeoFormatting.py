@@ -79,22 +79,20 @@ def xy_to_lola(tnsf, px, py, verbose=False):
      lon  =  |  dx   yshear| * x + lon0
      lat     |xshear   dy  |   y   lat0
     '''
+    if verbose == True: print('Converting pixels x/y -> Lon/Lat')
+
     # Convert transform to matrix, vector
     T, L0 = vectorize_gdal_transform(tnsf)
 
     # Formulate position as vector
-    p = np.array([[px, py]]).T
+    p = np.vstack([px.reshape(1,-1), py.reshape(1,-1)])
 
     # Transform
     lon, lat = T.dot(p) + L0
 
     # Flatten results
-    lon = lon.flatten()[0]
-    lat = lat.flatten()[0]
-
-    # Report if requested
-    if verbose == True:
-        print('Pixels x/y ({:f}, {:f}) -> Lon/Lat ({:f}, {:f})'.format(px, py, lon, lat))
+    lon = lon.flatten()
+    lat = lat.flatten()
 
     return lon, lat
 
@@ -106,23 +104,21 @@ def lola_to_xy(tnsf, lon, lat, verbose=False):
      x  =  (|  dx   yshear|)-1 * (lon - lon0)
      y     (|xshear   dy  |)     (lat - lat0)
     '''
+    if verbose == True: print('Converting Lon/Lat -> pixels x/y')
+
     # Convert transform to matrix, vector
     T, L0 = vectorize_gdal_transform(tnsf)
 
     # Formulate geo coordinates as vector
-    L = np.array([[lon, lat]]).T
+    L = np.vstack([lon.reshape(1,-1), lat.reshape(1,-1)])
 
     # Transform
     Tinv = np.linalg.inv(T)  # inverse transform
     px, py = Tinv.dot((L-L0))
 
     # Flatten results
-    px = int(px.flatten()[0])
-    py = int(py.flatten()[0])
-
-    # Report if requested
-    if verbose == True:
-        print('Lon/Lat ({:f}, {:f}) -> pixels x/y ({:d}, {:d})'.format(lon, lat, px, py))
+    px = px.flatten().astype(int)
+    py = py.flatten().astype(int)
 
     return px, py
 
@@ -153,12 +149,16 @@ def vectorize_gdal_transform(tnsf, verbose=False):
 
 
 ### GDAL FORMATTING---
-def get_raster_size(DS):
+def get_raster_size(DS, verbose=False):
     '''
     Retrieve raster size from data set.
     '''
+    # Raster size
     M = DS.RasterYSize
     N = DS.RasterXSize
+
+    # Report if requested
+    if verbose == True: print('Raster size: {:d} x {:d}'.format(M, N))
 
     return M, N
 
@@ -174,7 +174,7 @@ def DS_to_extent(DS, verbose=False):
     tnsf = DS.GetGeoTransform()
 
     # Convert to extent
-    extent = transform_to_extent(tnsf, M, N, verbose=False)
+    extent = transform_to_extent(tnsf, M, N, verbose=verbose)
 
     return extent
 
@@ -190,7 +190,7 @@ def DS_to_bounds(DS, verbose=False):
     tnsf = DS.GetGeoTransform()
 
     # Convert to bounds
-    bounds = transform_to_bounds(tnsf, M, N, verbose=False)
+    bounds = transform_to_bounds(tnsf, M, N, verbose=verbose)
 
     return bounds
 
