@@ -400,8 +400,8 @@ class velocity_from_timeseries:
             # Formulate design matrix
             self.G = np.ones((self.nEpochs, 4))
             self.G[:,1] = times.flatten()
-            self.G[:,2] = np.sin(2*np.pi*freq*times).flatten()
-            self.G[:,3] = np.cos(2*np.pi*freq*times).flatten()
+            self.G[:,2] = np.cos(2*np.pi*freq*times).flatten()
+            self.G[:,3] = np.sin(2*np.pi*freq*times).flatten()
 
 
     def __invert_design_matrix__(self):
@@ -434,11 +434,11 @@ class velocity_from_timeseries:
 
         # Setup
         solutions = []
-        self.offsetMap   = np.zeros((self.M, self.N))
-        self.velocityMap = np.zeros((self.M, self.N))
-        self.sineAmpMap     = np.zeros((self.M, self.N))
-        self.sinePhaseMap   = np.zeros((self.M, self.N))
-        self.residualMap = np.zeros((self.M, self.N))
+        self.offsetMap    = np.zeros((self.M, self.N))
+        self.velocityMap  = np.zeros((self.M, self.N))
+        self.sineAmpMap   = np.zeros((self.M, self.N))
+        self.sinePhaseMap = np.zeros((self.M, self.N))
+        self.residualMap  = np.zeros((self.M, self.N))
 
         # Loop through each pixel
         for i in range(self.M):

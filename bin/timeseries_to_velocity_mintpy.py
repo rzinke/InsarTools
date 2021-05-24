@@ -39,7 +39,7 @@ def createParser():
     InputArgs.add_argument('-r','--reference-point', dest='refPoint', type=float, nargs=2, default=None,
         help='Reference point ([None]; lon lat).')
     InputArgs.add_argument('-f','--fit-type', dest='fitType', type=str, default='linear',
-        help='Fit type used to compute velocities.')
+        help='Fit type used to compute velocities. ([linear], seasonal)')
 
 
     OutputArgs = parser.add_argument_group('OUTPUTS')
