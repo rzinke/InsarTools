@@ -158,10 +158,6 @@ class LOSrecomposition:
         # Save data set names for posterity
         self.dsNames = list(imgDatasets.keys())
 
-        # Load geometry data sets
-        incDatasets = load_gdal_datasets(incFiles, dsNames=self.dsNames, verbose=self.verbose)
-        azDatasets = load_gdal_datasets(azFiles, dsNames=self.dsNames, verbose=self.verbose)
-
         # Resample phase data sets to same size
         imgDatasets = match_rasters(imgDatasets, cropping='intersection', verbose=self.verbose)
         Mimg, Nimg = check_dataset_sizes(imgDatasets)
@@ -172,10 +168,12 @@ class LOSrecomposition:
         self.tnsf = imgDatasets[self.dsNames[0]].GetGeoTransform()
         self.proj = imgDatasets[self.dsNames[0]].GetProjection()
 
+        # Load geometry data sets
+        incDatasets = load_gdal_datasets(incFiles, dsNames=self.dsNames, verbose=self.verbose)
+        azDatasets = load_gdal_datasets(azFiles, dsNames=self.dsNames, verbose=self.verbose)
+
         # Resample geometry data sets to match phase data sets
-        incDatasets = {}
-        azDatasets = {}
-        for dsName in dsNames:
+        for dsName in self.dsNames:
             incDatasets[dsName] = gdal_resample(incDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg)
             azDatasets[dsName] = gdal_resample(azDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg)
 
