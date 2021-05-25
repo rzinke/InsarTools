@@ -155,12 +155,12 @@ class LOSrecomposition:
         # Load LOS displacement/velocity data
         imgDatasets = load_gdal_datasets(imgFiles, verbose=self.verbose)
 
-        # Load geometry data sets
-        incDatasets = load_gdal_datasets(incFiles, verbose=self.verbose)
-        azDatasets = load_gdal_datasets(azFiles, verbose=self.verbose)
-
         # Save data set names for posterity
         self.dsNames = list(imgDatasets.keys())
+
+        # Load geometry data sets
+        incDatasets = load_gdal_datasets(incFiles, dsNames=self.dsNames, verbose=self.verbose)
+        azDatasets = load_gdal_datasets(azFiles, dsNames=self.dsNames, verbose=self.verbose)
 
         # Resample phase data sets to same size
         imgDatasets = match_rasters(imgDatasets, cropping='intersection', verbose=self.verbose)
@@ -173,8 +173,11 @@ class LOSrecomposition:
         self.proj = imgDatasets[self.dsNames[0]].GetProjection()
 
         # Resample geometry data sets to match phase data sets
-        incDatasets = [gdal_resample(incDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg) for dsName in dsNames]
-        azDatasets = [gdal_resample(azDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg) for dsName in dsNames]
+        incDatasets = {}
+        azDatasets = {}
+        for dsName in dsNames:
+            incDatasets[dsName] = gdal_resample(incDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg)
+            azDatasets[dsName] = gdal_resample(azDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg)
 
         # Ensure data sets are the same size
         Minc, Ninc = check_dataset_sizes(incDatasets)
