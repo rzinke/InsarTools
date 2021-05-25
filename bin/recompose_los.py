@@ -15,10 +15,10 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from IOsupport import load_gdal_datasets, confirm_outdir, confirm_outname_ext, save_gdal_dataset
-from RasterResampling import match_rasters
+from RasterResampling import gdal_resample, match_rasters
 from Checks import check_dataset_sizes
 from Viewing import plot_raster, raster_multiplot
-from GeoFormatting import DS_to_extent
+from GeoFormatting import DS_to_bounds, DS_to_extent
 from Masking import create_mask
 from RadarGeometries import aria_geom_to_vector, isce_geom_to_vector, invert_from_los, parse_isce_los
 
@@ -162,24 +162,27 @@ class LOSrecomposition:
         # Save data set names for posterity
         self.dsNames = list(imgDatasets.keys())
 
-        # Resample data sets to same size
+        # Resample phase data sets to same size
         imgDatasets = match_rasters(imgDatasets, cropping='intersection', verbose=self.verbose)
-        incDatasets = match_rasters(incDatasets, cropping='intersection', verbose=self.verbose)
-        azDatasets = match_rasters(azDatasets, cropping='intersection', verbose=self.verbose)
+        Mimg, Nimg = check_dataset_sizes(imgDatasets)
+
+        # Store spatial parameters
+        bounds = DS_to_bounds(imgDatasets[self.dsNames[0]])
+        self.extent = DS_to_extent(imgDatasets[self.dsNames[0]])
+        self.tnsf = imgDatasets[self.dsNames[0]].GetGeoTransform()
+        self.proj = imgDatasets[self.dsNames[0]].GetProjection()
+
+        # Resample geometry data sets to match phase data sets
+        incDatasets = [gdal_resample(incDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg) for dsName in dsNames]
+        azDatasets = [gdal_resample(azDatasets[dsName], bounds=bounds, M=Mimg, N=Nimg) for dsName in dsNames]
 
         # Ensure data sets are the same size
-        Mimg, Nimg = check_dataset_sizes(imgDatasets)
         Minc, Ninc = check_dataset_sizes(incDatasets)
         Maz, Naz = check_dataset_sizes(azDatasets)
 
         assert (Mimg, Nimg) == (Minc, Ninc) == (Maz, Naz), \
             'Image data set dimensions ({:d} x {:d}) must equal incidence ({:d} x {:d}) and azimuth ({:d} x {:d})'.\
             format(Mimg, Nimg, Minc, Ninc, Maz, Naz)
-
-        # Store spatial parameters
-        self.extent = DS_to_extent(imgDatasets[self.dsNames[0]])
-        self.tnsf = imgDatasets[self.dsNames[0]].GetGeoTransform()
-        self.proj = imgDatasets[self.dsNames[0]].GetProjection()
 
         # Retrieve phase information from IFG data
         phsMaps = [imgDatasets[dsName].GetRasterBand(1).ReadAsArray() for dsName in imgDatasets.keys()]
