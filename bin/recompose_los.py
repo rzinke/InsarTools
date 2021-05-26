@@ -124,6 +124,7 @@ class LOSrecomposition:
 
         # Number of files for quick reference
         self.nObs = len(imgFiles)
+        assert self.nObs >= 2, 'Must have at least 2 input files'
 
         # Report if requested
         if self.verbose == True: print('\tnumber of input files is consistent: ({:d})'.format(self.nObs))

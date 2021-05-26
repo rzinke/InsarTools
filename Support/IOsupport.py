@@ -22,7 +22,7 @@ def check_exists(fname):
     '''
     Check that a file exists.
     '''
-    assert os.path.exists(fname), 'ERROR: {:s} does not exist!!!'.format(fname)
+    assert os.path.exists(fname), 'ERROR: {:s} does not exist!!'.format(fname)
 
 
 def pick_dataset(datasets, verbose=False):

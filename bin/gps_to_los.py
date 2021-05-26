@@ -132,11 +132,11 @@ class GPStoLOS:
         if self.verbose == True: print('Checking GPS inputs')
 
         # Check that vertical data are included, or assume zero values
-        if GPS.V.size == 0:
-            GPS.V = np.zeros(GPS.E.shape)
+        if GPS.V is None:
+            if self.verbose == True: print('Vertical values not detected. Assuming zero displacement.')
+            GPS.assign_zero_vertical()
 
-            print('Vertical values not detected. Assuming zero displacement.')
-
+        # Ascribe to object
         self.GPS = GPS
 
 
@@ -558,10 +558,6 @@ if __name__ == '__main__':
 
 
     ## Load data
-    if inps.verbose == True:
-        print('*'*32)
-        print('Loading data')
-
     # Instantiate GPS object
     GPS = GPSdata(verbose=inps.verbose)
 
